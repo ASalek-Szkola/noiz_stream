@@ -1,7 +1,5 @@
-import 'dart:math' as math;
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
+import 'NoiseCard.dart';
 
 void main() {
   runApp(const MyApp());
@@ -33,17 +31,14 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  double brownSliderValue = 0.2;
-  double pinkSliderValue = 0.2;
-  double greenSliderValue = 0.2;
-  double whiteSliderValue = 0.2;
+  double brownSliderValue = 0.41;
+  double pinkSliderValue = 0.51;
+  double greenSliderValue = 0.20;
+  double whiteSliderValue = 0.72;
   int selectedIndex = 0;
 
   @override
   Widget build(BuildContext context) {
-    double w = MediaQuery.sizeOf(context).width;
-    double h = MediaQuery.sizeOf(context).height;
-
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
@@ -73,10 +68,7 @@ class _MyHomePageState extends State<MyHomePage> {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Color.fromARGB(255, 96, 132, 156),
-              Color.fromARGB(255, 40, 56, 79),
-            ],
+            colors: [Color(0xFF4C6A82), Color(0xFF27384E)],
           ),
         ),
         child: SafeArea(
@@ -106,7 +98,7 @@ class _MyHomePageState extends State<MyHomePage> {
                         selectedIndex = 0;
                       }),
                       icon: Icons.equalizer,
-                      accentColor: Colors.brown.shade300,
+                      accentColor: const Color(0xFFC38965),
                       wavePattern: 0,
                     ),
                     NoiseCard(
@@ -120,7 +112,7 @@ class _MyHomePageState extends State<MyHomePage> {
                         selectedIndex = 1;
                       }),
                       icon: Icons.nature,
-                      accentColor: Colors.pinkAccent.shade200,
+                      accentColor: const Color(0xFFE484A3),
                       wavePattern: 1,
                     ),
                     NoiseCard(
@@ -134,7 +126,7 @@ class _MyHomePageState extends State<MyHomePage> {
                         selectedIndex = 2;
                       }),
                       icon: Icons.park,
-                      accentColor: Colors.greenAccent.shade400,
+                      accentColor: const Color(0xFF6DCA78),
                       wavePattern: 2,
                     ),
                     NoiseCard(
@@ -148,7 +140,7 @@ class _MyHomePageState extends State<MyHomePage> {
                         selectedIndex = 3;
                       }),
                       icon: Icons.blur_on,
-                      accentColor: Colors.grey.shade300,
+                      accentColor: const Color(0xFFD1D1D1),
                       wavePattern: 3,
                     ),
                   ],
@@ -194,7 +186,7 @@ class _MyHomePageState extends State<MyHomePage> {
                               ),
                             ),
                             const SizedBox(height: 4),
-                            Text(
+                            const Text(
                               'min remaining',
                               style: TextStyle(
                                 color: Colors.white38,
@@ -209,7 +201,7 @@ class _MyHomePageState extends State<MyHomePage> {
                         height: 64,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: Colors.white,
+                          color: const Color(0xFFD3E4F6),
                           boxShadow: [
                             BoxShadow(
                               color: Colors.black.withOpacity(0.35),
@@ -253,255 +245,4 @@ class _MyHomePageState extends State<MyHomePage> {
       ),
     );
   }
-}
-
-class NoiseCard extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final double value;
-  final ValueChanged<double> onChanged;
-  final IconData icon;
-  final Color accentColor;
-  final bool isSelected;
-  final VoidCallback? onTap;
-  final int wavePattern;
-
-  const NoiseCard({
-    super.key,
-    required this.title,
-    required this.subtitle,
-    required this.value,
-    required this.onChanged,
-    required this.icon,
-    required this.accentColor,
-    this.isSelected = false,
-    this.onTap,
-    this.wavePattern = 0,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 250),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.10),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected ? Colors.white : Colors.white10,
-            width: isSelected ? 2.0 : 1.0,
-          ),
-        ),
-        child: Column(
-          children: [
-            // waveform preview
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
-              child: SizedBox(
-                height: 50,
-                child: WaveWidget(color: accentColor, pattern: wavePattern),
-              ),
-            ),
-            // Volume
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
-              child: Row(
-                children: [
-                  Icon(
-                    value == 0.00 ? Icons.volume_off : Icons.volume_up,
-                    size: 14,
-                    color: Colors.white60,
-                  ),
-                  Expanded(
-                    child: SliderTheme(
-                      data: SliderTheme.of(context).copyWith(
-                        trackHeight: 3,
-                        overlayShape: const RoundSliderOverlayShape(
-                          overlayRadius: 12,
-                        ),
-                        thumbShape: const RoundSliderThumbShape(
-                          enabledThumbRadius: 6,
-                        ),
-                      ),
-                      child: Slider(
-                        value: value,
-                        onChanged: onChanged,
-                        activeColor: accentColor.withOpacity(0.9),
-                        inactiveColor: Colors.white10,
-                      ),
-                    ),
-                  ),
-                  Text(
-                    '${(value * 100).toStringAsFixed(0)}%',
-                    style: const TextStyle(color: Colors.white60, fontSize: 10),
-                  ),
-                ],
-              ),
-            ),
-            // Info
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.3),
-                borderRadius: const BorderRadius.vertical(
-                  bottom: Radius.circular(20),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Icon(icon, color: accentColor, size: 20),
-                  const SizedBox(width: 10),
-                  Flexible(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          title,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                          ),
-                        ),
-                        Text(
-                          subtitle,
-                          style: const TextStyle(
-                            color: Colors.white38,
-                            fontSize: 10,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class WaveWidget extends StatelessWidget {
-  final Color color;
-  final int pattern;
-
-  const WaveWidget({super.key, required this.color, this.pattern = 0});
-
-  @override
-  Widget build(BuildContext context) {
-    return CustomPaint(
-      painter: WavePainter(color: color, pattern: pattern),
-      size: Size.infinite,
-    );
-  }
-}
-
-class WavePainter extends CustomPainter {
-  final Color color;
-  final int pattern;
-
-  WavePainter({required this.color, this.pattern = 0});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color.withOpacity(0.9)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3.0
-      ..strokeCap = StrokeCap.round;
-
-    final path = Path();
-    final midY = size.height / 2;
-    final amplitude = size.height / 2 * 0.6;
-
-    path.moveTo(0, midY);
-
-    switch (pattern) {
-      case 0:
-        // Brown Noise: jagged, multiple harmonics
-        for (double x = 0; x <= size.width; x++) {
-          final t = x / size.width;
-          final y =
-              midY +
-              amplitude *
-                  (0.6 * math.sin(t * 2 * math.pi * 1.5) +
-                      0.3 * math.sin(t * 2 * math.pi * 3) +
-                      0.1 * math.sin(t * 2 * math.pi * 7));
-          if (x == 0) {
-            path.moveTo(x, y);
-          } else {
-            path.lineTo(x, y);
-          }
-        }
-        break;
-      case 1:
-        // Pink Noise: smooth mid-frequency waves
-        for (double x = 0; x <= size.width; x++) {
-          final t = x / size.width;
-          final y =
-              midY +
-              amplitude *
-                  (0.8 * math.sin(t * 2 * math.pi * 2) +
-                      0.2 * math.sin(t * 2 * math.pi * 5));
-          if (x == 0) {
-            path.moveTo(x, y);
-          } else {
-            path.lineTo(x, y);
-          }
-        }
-        break;
-      case 2:
-        // Green Noise: smooth, lower frequency
-        for (double x = 0; x <= size.width; x++) {
-          final t = x / size.width;
-          final y =
-              midY +
-              amplitude *
-                  (0.9 * math.sin(t * 2 * math.pi * 0.8) +
-                      0.1 * math.sin(t * 2 * math.pi * 2));
-          if (x == 0) {
-            path.moveTo(x, y);
-          } else {
-            path.lineTo(x, y);
-          }
-        }
-        break;
-      case 3:
-        // White Noise: high frequency, jagged
-        for (double x = 0; x <= size.width; x++) {
-          final t = x / size.width;
-          final y =
-              midY +
-              amplitude *
-                  (0.5 * math.sin(t * 2 * math.pi * 3.5) +
-                      0.3 * math.sin(t * 2 * math.pi * 6) +
-                      0.2 * math.sin(t * 2 * math.pi * 10));
-          if (x == 0) {
-            path.moveTo(x, y);
-          } else {
-            path.lineTo(x, y);
-          }
-        }
-        break;
-      default:
-        for (double x = 0; x <= size.width; x++) {
-          final t = x / size.width;
-          final y = midY + amplitude * 0.6 * math.sin(t * 2 * math.pi * 2);
-          if (x == 0) {
-            path.moveTo(x, y);
-          } else {
-            path.lineTo(x, y);
-          }
-        }
-    }
-
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
