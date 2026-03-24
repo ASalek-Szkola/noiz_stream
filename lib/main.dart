@@ -31,14 +31,13 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  // Główne suwaki głośności szumów
   double brownSliderValue = 0.41;
   double pinkSliderValue = 0.51;
   double greenSliderValue = 0.20;
   double whiteSliderValue = 0.72;
   int selectedIndex = 0;
 
-  // Zmienne ustawień
+  // Settings
   bool playOnStartup = false;
   double crossfadeDuration = 3.0;
   bool highQualityAudio = false;
@@ -206,19 +205,16 @@ class _MyHomePageState extends State<MyHomePage> {
           ),
         ),
         child: SafeArea(
-          // LayoutBuilder + SingleChildScrollView rozwiązują problem zgniatania ekranu z góry do dołu
           child: LayoutBuilder(
             builder: (context, constraints) {
               return SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
                 child: ConstrainedBox(
                   constraints: BoxConstraints(
-                    minHeight: constraints
-                        .maxHeight, // Zapewnia wyśrodkowanie na dużych oknach
+                    minHeight: constraints.maxHeight, // Centered
                   ),
                   child: Column(
-                    mainAxisAlignment:
-                        MainAxisAlignment.center, // Zastępuje Spacer()
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -227,14 +223,12 @@ class _MyHomePageState extends State<MyHomePage> {
                           padding: const EdgeInsets.only(top: 12, bottom: 12),
                           physics: const NeverScrollableScrollPhysics(),
                           shrinkWrap: true,
-                          // Tutaj naprawiamy proporcje - karty zawsze będą miały 210px wysokości
                           gridDelegate:
                               const SliverGridDelegateWithFixedCrossAxisCount(
                                 crossAxisCount: 2,
                                 crossAxisSpacing: 14,
                                 mainAxisSpacing: 14,
-                                mainAxisExtent:
-                                    210, // STAŁA WYSOKOŚĆ zapobiega błędom w kartach
+                                mainAxisExtent: 170, // Fixed height
                               ),
                           children: <Widget>[
                             NoiseCard(
