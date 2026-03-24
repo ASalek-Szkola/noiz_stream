@@ -108,6 +108,8 @@ class NoiseCard extends StatelessWidget {
                       children: [
                         Text(
                           title,
+                          maxLines: 1, // Overflow protection
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
@@ -116,6 +118,8 @@ class NoiseCard extends StatelessWidget {
                         ),
                         Text(
                           subtitle,
+                          maxLines: 1, // Overflow protection
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             color: Colors.white38,
                             fontSize: 10,
