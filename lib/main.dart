@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'noise_card.dart';
 
@@ -36,6 +38,118 @@ class _MyHomePageState extends State<MyHomePage> {
   double greenSliderValue = 0.20;
   double whiteSliderValue = 0.72;
   int selectedIndex = 0;
+
+  // Presets map
+  final Map<String, Map<String, double>> presets = {
+    'Deep Work': {'brown': 0.8, 'pink': 0.0, 'green': 0.0, 'white': 0.1},
+    'Forest Walk': {'brown': 0.0, 'pink': 0.0, 'green': 0.9, 'white': 0.0},
+    'Pure White': {'brown': 0.0, 'pink': 0.0, 'green': 0.0, 'white': 1.0},
+    'Rainy Library': {'brown': 0.2, 'pink': 0.7, 'green': 0.1, 'white': 0.05},
+    'Space Drift': {'brown': 0.9, 'pink': 0.1, 'green': 0.0, 'white': 0.0},
+    'Zen Garden': {'brown': 0.1, 'pink': 0.2, 'green': 0.8, 'white': 0.1},
+  };
+
+  // Exposed preset names list (can be updated elsewhere). UI listens to this.
+  final ValueNotifier<List<String>> presetNamesNotifier =
+      ValueNotifier<List<String>>([]);
+
+  // currently active preset name for UI
+  String? activePresetName;
+
+  Timer? _presetTimer;
+  final int _presetSteps = 20;
+  final Duration _presetDuration = const Duration(milliseconds: 450);
+
+  void _applyPreset(String name) {
+    final target = presets[name];
+    if (target == null) return;
+
+    // determine dominant noise and set selectedIndex accordingly
+    final dominantEntry = target.entries.reduce(
+      (a, b) => a.value >= b.value ? a : b,
+    );
+    final dominantKey = dominantEntry.key;
+    final Map<String, int> indexMap = {
+      'brown': 0,
+      'pink': 1,
+      'green': 2,
+      'white': 3,
+    };
+    final int dominantIndex = indexMap[dominantKey] ?? -1;
+
+    // cancel any running animation
+    _presetTimer?.cancel();
+
+    final startBrown = brownSliderValue;
+    final startPink = pinkSliderValue;
+    final startGreen = greenSliderValue;
+    final startWhite = whiteSliderValue;
+
+    final targetBrown = target['brown'] ?? 0.0;
+    final targetPink = target['pink'] ?? 0.0;
+    final targetGreen = target['green'] ?? 0.0;
+    final targetWhite = target['white'] ?? 0.0;
+
+    final int steps = _presetSteps;
+    final int stepMs = (_presetDuration.inMilliseconds ~/ steps);
+    final stepDuration = Duration(milliseconds: stepMs);
+    int step = 0;
+
+    // immediately set selected index to show dominance and active preset name
+    setState(() {
+      selectedIndex = dominantIndex;
+      activePresetName = name;
+    });
+
+    _presetTimer = Timer.periodic(stepDuration, (timer) {
+      step++;
+      final double t = (step / steps).clamp(0.0, 1.0);
+      final double eased = Curves.easeInOut.transform(t);
+
+      final brown = startBrown + (targetBrown - startBrown) * eased;
+      final pink = startPink + (targetPink - startPink) * eased;
+      final green = startGreen + (targetGreen - startGreen) * eased;
+      final white = startWhite + (targetWhite - startWhite) * eased;
+
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+
+      setState(() {
+        brownSliderValue = brown;
+        pinkSliderValue = pink;
+        greenSliderValue = green;
+        whiteSliderValue = white;
+      });
+
+      if (step >= steps) {
+        timer.cancel();
+        _presetTimer = null;
+        if (!mounted) return;
+        setState(() {
+          brownSliderValue = targetBrown;
+          pinkSliderValue = targetPink;
+          greenSliderValue = targetGreen;
+          whiteSliderValue = targetWhite;
+        });
+      }
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // initialize the preset names from the presets map
+    presetNamesNotifier.value = presets.keys.toList();
+  }
+
+  @override
+  void dispose() {
+    _presetTimer?.cancel();
+    presetNamesNotifier.dispose();
+    super.dispose();
+  }
 
   // Settings
   bool playOnStartup = false;
@@ -242,6 +356,7 @@ class _MyHomePageState extends State<MyHomePage> {
                               onChanged: (val) => setState(() {
                                 brownSliderValue = val;
                                 selectedIndex = 0;
+                                activePresetName = null;
                               }),
                               icon: Icons.equalizer,
                               accentColor: const Color(0xFFC38965),
@@ -258,6 +373,7 @@ class _MyHomePageState extends State<MyHomePage> {
                               onChanged: (val) => setState(() {
                                 pinkSliderValue = val;
                                 selectedIndex = 1;
+                                activePresetName = null;
                               }),
                               icon: Icons.nature,
                               accentColor: const Color(0xFFE484A3),
@@ -274,6 +390,7 @@ class _MyHomePageState extends State<MyHomePage> {
                               onChanged: (val) => setState(() {
                                 greenSliderValue = val;
                                 selectedIndex = 2;
+                                activePresetName = null;
                               }),
                               icon: Icons.park,
                               accentColor: const Color(0xFF6DCA78),
@@ -290,6 +407,7 @@ class _MyHomePageState extends State<MyHomePage> {
                               onChanged: (val) => setState(() {
                                 whiteSliderValue = val;
                                 selectedIndex = 3;
+                                activePresetName = null;
                               }),
                               icon: Icons.blur_on,
                               accentColor: const Color(0xFFD1D1D1),
@@ -324,13 +442,41 @@ class _MyHomePageState extends State<MyHomePage> {
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                        const Text(
-                                          'MIX',
-                                          style: TextStyle(
-                                            color: Colors.white70,
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w600,
-                                          ),
+                                        ValueListenableBuilder<List<String>>(
+                                          valueListenable: presetNamesNotifier,
+                                          builder: (context, names, _) {
+                                            final items = names.isNotEmpty
+                                                ? names
+                                                : presets.keys.toList();
+                                            return PopupMenuButton<String>(
+                                              onSelected: (String name) {
+                                                _applyPreset(name);
+                                              },
+                                              itemBuilder:
+                                                  (BuildContext context) =>
+                                                      items
+                                                          .map(
+                                                            (k) =>
+                                                                PopupMenuItem<
+                                                                  String
+                                                                >(
+                                                                  value: k,
+                                                                  child: Text(
+                                                                    k,
+                                                                  ),
+                                                                ),
+                                                          )
+                                                          .toList(),
+                                              child: Text(
+                                                activePresetName ?? 'MIX',
+                                                style: const TextStyle(
+                                                  color: Colors.white70,
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                            );
+                                          },
                                         ),
                                         const SizedBox(height: 8),
                                         Text(
