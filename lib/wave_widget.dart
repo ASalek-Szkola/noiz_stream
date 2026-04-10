@@ -4,13 +4,19 @@ import 'package:flutter/material.dart';
 class WaveWidget extends StatelessWidget {
   final Color color;
   final int pattern;
+  final double volume;
 
-  const WaveWidget({super.key, required this.color, this.pattern = 0});
+  const WaveWidget({
+    super.key,
+    required this.color,
+    this.pattern = 0,
+    this.volume = 1.0,
+  });
 
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
-      painter: WavePainter(color: color, pattern: pattern),
+      painter: WavePainter(color: color, pattern: pattern, volume: volume),
       size: Size.infinite,
     );
   }
@@ -19,8 +25,9 @@ class WaveWidget extends StatelessWidget {
 class WavePainter extends CustomPainter {
   final Color color;
   final int pattern;
+  final double volume;
 
-  WavePainter({required this.color, this.pattern = 0});
+  WavePainter({required this.color, this.pattern = 0, this.volume = 1.0});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -32,7 +39,7 @@ class WavePainter extends CustomPainter {
 
     final path = Path();
     final midY = size.height / 2;
-    final amplitude = size.height / 2 * 0.85;
+    final amplitude = size.height / 2 * 0.85 * volume;
 
     // Generates completely smooth, randomized peak heights for the envelope
     List<double> generateWave(int seed, int count, double envelopePower) {
@@ -123,5 +130,9 @@ class WavePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant WavePainter oldDelegate) {
+    return oldDelegate.color != color ||
+        oldDelegate.pattern != pattern ||
+        oldDelegate.volume != volume;
+  }
 }

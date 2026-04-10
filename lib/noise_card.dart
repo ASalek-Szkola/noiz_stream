@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'WaveWidget.dart';
+import 'wave_widget.dart';
 
 class NoiseCard extends StatelessWidget {
   final String title;
@@ -32,11 +32,11 @@ class NoiseCard extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.10),
+          color: Colors.white.withValues(alpha: 0.10),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isSelected
-                ? Colors.lightBlue.shade100.withOpacity(0.8)
+                ? Colors.lightBlue.shade100.withValues(alpha: 0.8)
                 : Colors.white10,
             width: isSelected ? 2.5 : 1.0,
           ),
@@ -49,7 +49,14 @@ class NoiseCard extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
               child: SizedBox(
                 height: 50,
-                child: WaveWidget(color: accentColor, pattern: wavePattern),
+                child: WaveWidget(
+                  color: accentColor,
+                  pattern: wavePattern,
+                  volume: value < 0.4
+                      ? value / 0.2 * 0.5 -
+                            0.1 // Boost low volumes for better visibility
+                      : value,
+                ),
               ),
             ),
             // Volume
@@ -76,7 +83,7 @@ class NoiseCard extends StatelessWidget {
                       child: Slider(
                         value: value,
                         onChanged: onChanged,
-                        activeColor: accentColor.withOpacity(0.9),
+                        activeColor: accentColor.withValues(alpha: 0.9),
                         inactiveColor: Colors.white10,
                       ),
                     ),
@@ -92,7 +99,7 @@ class NoiseCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.3),
+                color: Colors.black.withValues(alpha: 0.3),
                 borderRadius: const BorderRadius.vertical(
                   bottom: Radius.circular(15),
                 ),

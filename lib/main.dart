@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'NoiseCard.dart';
+import 'noise_card.dart';
 
 void main() {
   runApp(const MyApp());
@@ -85,7 +85,7 @@ class _MyHomePageState extends State<MyHomePage> {
                         style: TextStyle(color: Colors.white54, fontSize: 12),
                       ),
                       value: playOnStartup,
-                      activeColor: Colors.lightBlue.shade200,
+                      activeThumbColor: Colors.lightBlue.shade200,
                       onChanged: (bool value) {
                         setModalState(() => playOnStartup = value);
                         setState(() {});
@@ -105,7 +105,7 @@ class _MyHomePageState extends State<MyHomePage> {
                         style: TextStyle(color: Colors.white54, fontSize: 12),
                       ),
                       value: highQualityAudio,
-                      activeColor: Colors.lightBlue.shade200,
+                      activeThumbColor: Colors.lightBlue.shade200,
                       onChanged: (bool value) {
                         setModalState(() => highQualityAudio = value);
                         setState(() {});
@@ -236,7 +236,9 @@ class _MyHomePageState extends State<MyHomePage> {
                               subtitle: "(Deep)",
                               value: brownSliderValue,
                               isSelected: selectedIndex == 0,
-                              onTap: () => setState(() => selectedIndex = 0),
+                              onTap: () => setState(() {
+                                selectedIndex = selectedIndex == 0 ? -1 : 0;
+                              }),
                               onChanged: (val) => setState(() {
                                 brownSliderValue = val;
                                 selectedIndex = 0;
@@ -250,7 +252,9 @@ class _MyHomePageState extends State<MyHomePage> {
                               subtitle: "(Nature)",
                               value: pinkSliderValue,
                               isSelected: selectedIndex == 1,
-                              onTap: () => setState(() => selectedIndex = 1),
+                              onTap: () => setState(() {
+                                selectedIndex = selectedIndex == 1 ? -1 : 1;
+                              }),
                               onChanged: (val) => setState(() {
                                 pinkSliderValue = val;
                                 selectedIndex = 1;
@@ -264,7 +268,9 @@ class _MyHomePageState extends State<MyHomePage> {
                               subtitle: "(Forest)",
                               value: greenSliderValue,
                               isSelected: selectedIndex == 2,
-                              onTap: () => setState(() => selectedIndex = 2),
+                              onTap: () => setState(() {
+                                selectedIndex = selectedIndex == 2 ? -1 : 2;
+                              }),
                               onChanged: (val) => setState(() {
                                 greenSliderValue = val;
                                 selectedIndex = 2;
@@ -278,7 +284,9 @@ class _MyHomePageState extends State<MyHomePage> {
                               subtitle: "(Detail)",
                               value: whiteSliderValue,
                               isSelected: selectedIndex == 3,
-                              onTap: () => setState(() => selectedIndex = 3),
+                              onTap: () => setState(() {
+                                selectedIndex = selectedIndex == 3 ? -1 : 3;
+                              }),
                               onChanged: (val) => setState(() {
                                 whiteSliderValue = val;
                                 selectedIndex = 3;
@@ -295,92 +303,115 @@ class _MyHomePageState extends State<MyHomePage> {
                           horizontal: 20.0,
                           vertical: 18,
                         ),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.06),
-                            borderRadius: BorderRadius.circular(18),
-                            border: Border.all(color: Colors.white10),
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      'MIX',
-                                      style: TextStyle(
-                                        color: Colors.white70,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      '24:15',
-                                      style: TextStyle(
-                                        color: Colors.white.withOpacity(0.9),
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    const Text(
-                                      'min remaining',
-                                      style: TextStyle(
-                                        color: Colors.white38,
-                                        fontSize: 11,
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                        child: AbsorbPointer(
+                          absorbing: selectedIndex == -1,
+                          child: Opacity(
+                            opacity: selectedIndex == -1 ? 0.5 : 1.0,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
                               ),
-                              Container(
-                                width: 64,
-                                height: 64,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: const Color(0xFFD3E4F6),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.35),
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                  ],
-                                ),
-                                child: IconButton(
-                                  icon: const Icon(
-                                    Icons.pause,
-                                    color: Colors.black87,
-                                  ),
-                                  onPressed: () {},
-                                ),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.06),
+                                borderRadius: BorderRadius.circular(18),
+                                border: Border.all(color: Colors.white10),
                               ),
-                              const SizedBox(width: 14),
-                              Column(
+                              child: Row(
                                 children: [
-                                  IconButton(
-                                    onPressed: () {},
-                                    icon: const Icon(
-                                      Icons.repeat,
-                                      color: Colors.white70,
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          'MIX',
+                                          style: TextStyle(
+                                            color: Colors.white70,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          '24:15',
+                                          style: TextStyle(
+                                            color: Colors.white.withValues(
+                                              alpha: 0.9,
+                                            ),
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        const Text(
+                                          'min remaining',
+                                          style: TextStyle(
+                                            color: Colors.white38,
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                  IconButton(
-                                    onPressed: () {},
-                                    icon: const Icon(
-                                      Icons.shuffle,
-                                      color: Colors.white70,
+                                  Container(
+                                    width: 64,
+                                    height: 64,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: const Color(0xFFD3E4F6),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(
+                                            alpha: 0.35,
+                                          ),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 4),
+                                        ),
+                                      ],
                                     ),
+                                    child: IconButton(
+                                      icon: Icon(
+                                        Icons.pause,
+                                        color: selectedIndex == -1
+                                            ? Colors.black26
+                                            : Colors.black87,
+                                      ),
+                                      onPressed: selectedIndex == -1
+                                          ? null
+                                          : () {},
+                                    ),
+                                  ),
+                                  const SizedBox(width: 14),
+                                  Column(
+                                    children: [
+                                      IconButton(
+                                        onPressed: selectedIndex == -1
+                                            ? null
+                                            : () {},
+                                        icon: Icon(
+                                          Icons.repeat,
+                                          color: selectedIndex == -1
+                                              ? Colors.white30
+                                              : Colors.white70,
+                                        ),
+                                      ),
+                                      IconButton(
+                                        onPressed: selectedIndex == -1
+                                            ? null
+                                            : () {},
+                                        icon: Icon(
+                                          Icons.shuffle,
+                                          color: selectedIndex == -1
+                                              ? Colors.white30
+                                              : Colors.white70,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),
-                            ],
+                            ),
                           ),
                         ),
                       ),
