@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'noise_card.dart';
 
 void main() {
@@ -35,7 +37,9 @@ class MyApp extends StatelessWidget {
               onPrimary: Color(0xFFFFFFFF), // --cc-btn-primary-color
               secondary: Color(0xFF5E6266), // --cc-secondary-color
               onSecondary: Color(0xFFFFFFFF),
-              surfaceVariant: Color(0xFFEAEFF2), // --cc-cookie-category-block-bg
+              surfaceContainerHighest: Color(
+                0xFFEAEFF2,
+              ), // --cc-cookie-category-block-bg
               outline: Color(0xFFDCE3E8), // --cc-separator-border-color
             ),
             scaffoldBackgroundColor: const Color(0xFFF7F8FA),
@@ -45,13 +49,13 @@ class MyApp extends StatelessWidget {
               bodySmall: TextStyle(color: Color(0xFF5E6266)),
             ),
             switchTheme: SwitchThemeData(
-              thumbColor: MaterialStateProperty.resolveWith((states) {
-                return states.contains(MaterialState.selected)
+              thumbColor: WidgetStateProperty.resolveWith((states) {
+                return states.contains(WidgetState.selected)
                     ? const Color(0xFF30363C)
                     : const Color(0xFF9EAAB4);
               }),
-              trackColor: MaterialStateProperty.resolveWith((states) {
-                return states.contains(MaterialState.selected)
+              trackColor: WidgetStateProperty.resolveWith((states) {
+                return states.contains(WidgetState.selected)
                     ? const Color(0xFF30363C).withValues(alpha: 0.35)
                     : const Color(0xFFD7DDE2);
               }),
@@ -73,7 +77,9 @@ class MyApp extends StatelessWidget {
               onPrimary: Color(0xFF161A1C), // --cc-btn-primary-color
               secondary: Color(0xFFAEBBC5), // --cc-secondary-color
               onSecondary: Color(0xFF161A1C),
-              surfaceVariant: Color(0xFF1E2428), // --cc-cookie-category-block-bg
+              surfaceContainerHighest: Color(
+                0xFF1E2428,
+              ), // --cc-cookie-category-block-bg
               outline: Color(0xFF222A30), // --cc-separator-border-color
             ),
             scaffoldBackgroundColor: const Color(0xFF161A1C),
@@ -115,6 +121,29 @@ class _MyHomePageState extends State<MyHomePage> {
     'Space Drift': {'brown': 0.9, 'pink': 0.1, 'green': 0.0, 'white': 0.0},
     'Zen Garden': {'brown': 0.1, 'pink': 0.2, 'green': 0.8, 'white': 0.1},
   };
+
+  final Map<String, Color> presetColors = {
+    'Deep Work': const Color(0xFF4B5A7A),
+    'Forest Walk': const Color(0xFF2F8F60),
+    'Pure White': const Color(0xFFA9B4BD),
+    'Rainy Library': const Color(0xFF6D7AA8),
+    'Space Drift': const Color(0xFF4D4A8C),
+    'Zen Garden': const Color(0xFF5FA77F),
+  };
+
+  final Set<String> customPresetNames = <String>{};
+
+  static const String _customPresetsKey = 'custom_presets_v1';
+  static const List<Color> _presetColorOptions = <Color>[
+    Color(0xFF4B5A7A),
+    Color(0xFF2F8F60),
+    Color(0xFF6D7AA8),
+    Color(0xFF4D4A8C),
+    Color(0xFFC8746A),
+    Color(0xFFC0A15C),
+    Color(0xFF5D8E9F),
+    Color(0xFF9A72A5),
+  ];
 
   // Exposed preset names list (can be updated elsewhere). UI listens to this.
   final ValueNotifier<List<String>> presetNamesNotifier =
@@ -204,11 +233,238 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
+  Map<String, double> _currentMixValues() {
+    return {
+      'brown': brownSliderValue,
+      'pink': pinkSliderValue,
+      'green': greenSliderValue,
+      'white': whiteSliderValue,
+    };
+  }
+
+  Future<void> _persistCustomPresets() async {
+    final prefs = await SharedPreferences.getInstance();
+    final payload = customPresetNames
+        .map((name) {
+          final levels = presets[name];
+          if (levels == null) return null;
+          final color = presetColors[name] ?? _presetColorOptions.first;
+          return {
+            'name': name,
+            'color': color.toARGB32(),
+            'brown': levels['brown'] ?? 0.0,
+            'pink': levels['pink'] ?? 0.0,
+            'green': levels['green'] ?? 0.0,
+            'white': levels['white'] ?? 0.0,
+          };
+        })
+        .whereType<Map<String, Object>>()
+        .toList();
+
+    await prefs.setString(_customPresetsKey, jsonEncode(payload));
+  }
+
+  Future<void> _loadCustomPresets() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_customPresetsKey);
+    if (raw == null || raw.isEmpty) return;
+
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return;
+
+      final loadedPresets = <String, Map<String, double>>{};
+      final loadedColors = <String, Color>{};
+
+      for (final entry in decoded) {
+        if (entry is! Map) continue;
+        final dynamic nameValue = entry['name'];
+        if (nameValue is! String) continue;
+
+        final name = nameValue.trim();
+        if (name.isEmpty) continue;
+
+        double readLevel(String key) {
+          final dynamic level = entry[key];
+          if (level is num) {
+            return level.toDouble().clamp(0.0, 1.0);
+          }
+          return 0.0;
+        }
+
+        final dynamic colorValue = entry['color'];
+        loadedPresets[name] = {
+          'brown': readLevel('brown'),
+          'pink': readLevel('pink'),
+          'green': readLevel('green'),
+          'white': readLevel('white'),
+        };
+        loadedColors[name] = colorValue is int
+            ? Color(colorValue)
+            : _presetColorOptions.first;
+      }
+
+      if (!mounted || loadedPresets.isEmpty) return;
+      setState(() {
+        presets.addAll(loadedPresets);
+        presetColors.addAll(loadedColors);
+        customPresetNames
+          ..clear()
+          ..addAll(loadedPresets.keys);
+        presetNamesNotifier.value = presets.keys.toList();
+      });
+    } catch (_) {
+      // Ignore malformed local data and continue with built-in presets.
+    }
+  }
+
+  Future<void> _saveCurrentMixAsPreset(String name, Color color) async {
+    final trimmedName = name.trim();
+    if (trimmedName.isEmpty) return;
+
+    if (presets.containsKey(trimmedName) &&
+        !customPresetNames.contains(trimmedName)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Preset o tej nazwie już istnieje jako wbudowany. Wybierz inną nazwę.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      presets[trimmedName] = _currentMixValues();
+      presetColors[trimmedName] = color;
+      customPresetNames.add(trimmedName);
+      activePresetName = trimmedName;
+      presetNamesNotifier.value = presets.keys.toList();
+    });
+
+    await _persistCustomPresets();
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Zapisano preset: $trimmedName')));
+  }
+
+  void _openSavePresetDialog() {
+    final TextEditingController nameController = TextEditingController();
+    Color selectedColor = activePresetName != null
+        ? (presetColors[activePresetName!] ?? _presetColorOptions.first)
+        : _presetColorOptions.first;
+
+    showDialog<void>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        final theme = Theme.of(dialogContext);
+        return StatefulBuilder(
+          builder: (BuildContext _, StateSetter setDialogState) {
+            return AlertDialog(
+              title: const Text('Zapisz preset'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      controller: nameController,
+                      autofocus: true,
+                      textInputAction: TextInputAction.done,
+                      decoration: const InputDecoration(
+                        labelText: 'Nazwa presetu',
+                        hintText: 'Np. Morning Focus',
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Kolor presetu',
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: _presetColorOptions.map((color) {
+                        final isSelected =
+                            color.toARGB32() == selectedColor.toARGB32();
+                        return InkWell(
+                          borderRadius: BorderRadius.circular(20),
+                          onTap: () {
+                            setDialogState(() {
+                              selectedColor = color;
+                            });
+                          },
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 180),
+                            width: 30,
+                            height: 30,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: color,
+                              border: Border.all(
+                                color: isSelected
+                                    ? theme.colorScheme.onSurface
+                                    : Colors.transparent,
+                                width: 2,
+                              ),
+                            ),
+                            child: isSelected
+                                ? Icon(
+                                    Icons.check,
+                                    size: 16,
+                                    color: theme.colorScheme.onPrimary,
+                                  )
+                                : null,
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Anuluj'),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    final name = nameController.text.trim();
+                    if (name.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Podaj nazwę presetu.')),
+                      );
+                      return;
+                    }
+
+                    Navigator.of(dialogContext).pop();
+                    unawaited(_saveCurrentMixAsPreset(name, selectedColor));
+                  },
+                  child: const Text('Zapisz'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    ).then((_) {
+      nameController.dispose();
+    });
+  }
+
   @override
   void initState() {
     super.initState();
     // initialize the preset names from the presets map
     presetNamesNotifier.value = presets.keys.toList();
+    unawaited(_loadCustomPresets());
   }
 
   @override
@@ -290,10 +546,11 @@ class _MyHomePageState extends State<MyHomePage> {
                             ),
                           ),
                           value: themeNotifier.value == ThemeMode.dark,
-                          activeColor: theme.colorScheme.primary,
+                          activeThumbColor: theme.colorScheme.primary,
                           onChanged: (bool value) {
-                            themeNotifier.value =
-                                value ? ThemeMode.dark : ThemeMode.light;
+                            themeNotifier.value = value
+                                ? ThemeMode.dark
+                                : ThemeMode.light;
                             setModalState(() {});
                             setState(() {});
                           },
@@ -316,7 +573,7 @@ class _MyHomePageState extends State<MyHomePage> {
                             ),
                           ),
                           value: playOnStartup,
-                          activeColor: theme.colorScheme.primary,
+                          activeThumbColor: theme.colorScheme.primary,
                           onChanged: (bool value) {
                             setModalState(() => playOnStartup = value);
                             setState(() {});
@@ -339,7 +596,7 @@ class _MyHomePageState extends State<MyHomePage> {
                             ),
                           ),
                           value: highQualityAudio,
-                          activeColor: theme.colorScheme.primary,
+                          activeThumbColor: theme.colorScheme.primary,
                           onChanged: (bool value) {
                             setModalState(() => highQualityAudio = value);
                             setState(() {});
@@ -544,36 +801,139 @@ class _MyHomePageState extends State<MyHomePage> {
                                             final items = names.isNotEmpty
                                                 ? names
                                                 : presets.keys.toList();
-                                            return PopupMenuButton<String>(
-                                              onSelected: (String name) {
-                                                _applyPreset(name);
-                                              },
-                                              itemBuilder:
-                                                  (BuildContext context) =>
-                                                      items
-                                                          .map(
-                                                            (k) =>
-                                                                PopupMenuItem<
-                                                                  String
-                                                                >(
-                                                                  value: k,
-                                                                  child: Text(
-                                                                    k,
-                                                                    style: TextStyle(
-                                                                      color: theme.colorScheme.onSurface,
-                                                                    ),
-                                                                  ),
+                                            final activeColor =
+                                                activePresetName != null
+                                                ? (presetColors[activePresetName!] ??
+                                                      theme
+                                                          .colorScheme
+                                                          .secondary)
+                                                : theme.colorScheme.secondary;
+
+                                            return Row(
+                                              children: [
+                                                PopupMenuButton<String>(
+                                                  onSelected: (String name) {
+                                                    _applyPreset(name);
+                                                  },
+                                                  itemBuilder: (BuildContext context) => items.map((
+                                                    k,
+                                                  ) {
+                                                    final color =
+                                                        presetColors[k] ??
+                                                        theme
+                                                            .colorScheme
+                                                            .primary;
+                                                    final isCustom =
+                                                        customPresetNames
+                                                            .contains(k);
+
+                                                    return PopupMenuItem<
+                                                      String
+                                                    >(
+                                                      value: k,
+                                                      child: Row(
+                                                        children: [
+                                                          Container(
+                                                            width: 10,
+                                                            height: 10,
+                                                            decoration:
+                                                                BoxDecoration(
+                                                                  shape: BoxShape
+                                                                      .circle,
+                                                                  color: color,
                                                                 ),
-                                                          )
-                                                          .toList(),
-                                              child: Text(
-                                                activePresetName ?? 'MIX',
-                                                style: TextStyle(
-                                                  color: theme.colorScheme.secondary,
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w600,
+                                                          ),
+                                                          const SizedBox(
+                                                            width: 8,
+                                                          ),
+                                                          Expanded(
+                                                            child: Text(
+                                                              k,
+                                                              style: TextStyle(
+                                                                color: theme
+                                                                    .colorScheme
+                                                                    .onSurface,
+                                                              ),
+                                                              overflow:
+                                                                  TextOverflow
+                                                                      .ellipsis,
+                                                            ),
+                                                          ),
+                                                          if (isCustom)
+                                                            Padding(
+                                                              padding:
+                                                                  const EdgeInsets.only(
+                                                                    left: 6,
+                                                                  ),
+                                                              child: Icon(
+                                                                Icons.bookmark,
+                                                                size: 14,
+                                                                color: theme
+                                                                    .colorScheme
+                                                                    .secondary,
+                                                              ),
+                                                            ),
+                                                        ],
+                                                      ),
+                                                    );
+                                                  }).toList(),
+                                                  child: Row(
+                                                    mainAxisSize:
+                                                        MainAxisSize.min,
+                                                    children: [
+                                                      Container(
+                                                        width: 10,
+                                                        height: 10,
+                                                        decoration:
+                                                            BoxDecoration(
+                                                              shape: BoxShape
+                                                                  .circle,
+                                                              color:
+                                                                  activeColor,
+                                                            ),
+                                                      ),
+                                                      const SizedBox(width: 6),
+                                                      Text(
+                                                        activePresetName ??
+                                                            'MIX',
+                                                        style: TextStyle(
+                                                          color: theme
+                                                              .colorScheme
+                                                              .secondary,
+                                                          fontSize: 12,
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 2),
+                                                      Icon(
+                                                        Icons
+                                                            .keyboard_arrow_down,
+                                                        size: 18,
+                                                        color: theme
+                                                            .colorScheme
+                                                            .secondary,
+                                                      ),
+                                                    ],
+                                                  ),
                                                 ),
-                                              ),
+                                                IconButton(
+                                                  onPressed:
+                                                      _openSavePresetDialog,
+                                                  icon: Icon(
+                                                    Icons.bookmark_add_outlined,
+                                                    size: 18,
+                                                    color: theme
+                                                        .colorScheme
+                                                        .secondary,
+                                                  ),
+                                                  visualDensity:
+                                                      VisualDensity.compact,
+                                                  splashRadius: 18,
+                                                  tooltip:
+                                                      'Zapisz własny preset',
+                                                ),
+                                              ],
                                             );
                                           },
                                         ),
@@ -590,7 +950,8 @@ class _MyHomePageState extends State<MyHomePage> {
                                         Text(
                                           'min remaining',
                                           style: TextStyle(
-                                            color: theme.colorScheme.secondary.withValues(alpha: 0.7),
+                                            color: theme.colorScheme.secondary
+                                                .withValues(alpha: 0.7),
                                             fontSize: 11,
                                           ),
                                         ),
@@ -605,9 +966,8 @@ class _MyHomePageState extends State<MyHomePage> {
                                       color: theme.colorScheme.primary,
                                       boxShadow: [
                                         BoxShadow(
-                                          color: theme.colorScheme.primary.withValues(
-                                            alpha: 0.35,
-                                          ),
+                                          color: theme.colorScheme.primary
+                                              .withValues(alpha: 0.35),
                                           blurRadius: 8,
                                           offset: const Offset(0, 4),
                                         ),
@@ -633,7 +993,8 @@ class _MyHomePageState extends State<MyHomePage> {
                                         icon: Icon(
                                           Icons.repeat,
                                           color: selectedIndex == -1
-                                              ? theme.colorScheme.secondary.withValues(alpha: 0.3)
+                                              ? theme.colorScheme.secondary
+                                                    .withValues(alpha: 0.3)
                                               : theme.colorScheme.secondary,
                                         ),
                                       ),
@@ -644,7 +1005,8 @@ class _MyHomePageState extends State<MyHomePage> {
                                         icon: Icon(
                                           Icons.shuffle,
                                           color: selectedIndex == -1
-                                              ? theme.colorScheme.secondary.withValues(alpha: 0.3)
+                                              ? theme.colorScheme.secondary
+                                                    .withValues(alpha: 0.3)
                                               : theme.colorScheme.secondary,
                                         ),
                                       ),
