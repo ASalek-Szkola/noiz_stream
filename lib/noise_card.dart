@@ -27,17 +27,22 @@ class NoiseCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final bool isDark = theme.brightness == Brightness.dark;
+
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.10),
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.05)
+              : Colors.black.withValues(alpha: 0.03),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isSelected
-                ? Colors.lightBlue.shade100.withValues(alpha: 0.8)
-                : Colors.white10,
+                ? theme.colorScheme.primary.withValues(alpha: 0.8)
+                : theme.colorScheme.outline.withValues(alpha: 0.2),
             width: isSelected ? 2.5 : 1.0,
           ),
         ),
@@ -67,7 +72,7 @@ class NoiseCard extends StatelessWidget {
                   Icon(
                     value == 0.00 ? Icons.volume_off : Icons.volume_up,
                     size: 14,
-                    color: Colors.white60,
+                    color: theme.colorScheme.secondary.withValues(alpha: 0.6),
                   ),
                   Expanded(
                     child: SliderTheme(
@@ -84,13 +89,17 @@ class NoiseCard extends StatelessWidget {
                         value: value,
                         onChanged: onChanged,
                         activeColor: accentColor.withValues(alpha: 0.9),
-                        inactiveColor: Colors.white10,
+                        inactiveColor:
+                            theme.colorScheme.outline.withValues(alpha: 0.3),
                       ),
                     ),
                   ),
                   Text(
                     '${(value * 100).toStringAsFixed(0)}%',
-                    style: const TextStyle(color: Colors.white60, fontSize: 10),
+                    style: TextStyle(
+                      color: theme.colorScheme.secondary,
+                      fontSize: 10,
+                    ),
                   ),
                 ],
               ),
@@ -99,7 +108,9 @@ class NoiseCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.3),
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.05)
+                    : Colors.white.withValues(alpha: 0.4),
                 borderRadius: const BorderRadius.vertical(
                   bottom: Radius.circular(15),
                 ),
@@ -117,8 +128,8 @@ class NoiseCard extends StatelessWidget {
                           title,
                           maxLines: 1, // Overflow protection
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: theme.colorScheme.onSurface,
                             fontWeight: FontWeight.bold,
                             fontSize: 13,
                           ),
@@ -127,8 +138,8 @@ class NoiseCard extends StatelessWidget {
                           subtitle,
                           maxLines: 1, // Overflow protection
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white38,
+                          style: TextStyle(
+                            color: theme.colorScheme.secondary,
                             fontSize: 10,
                           ),
                         ),

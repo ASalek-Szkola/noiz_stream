@@ -7,19 +7,86 @@ void main() {
   runApp(const MyApp());
 }
 
+final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.light);
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'NoizStream',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
-      ),
-      home: const MyHomePage(title: 'NoizStream'),
-      debugShowCheckedModeBanner: false,
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: themeNotifier,
+      builder: (_, ThemeMode currentMode, __) {
+        return MaterialApp(
+          title: 'NoizStream',
+          theme: ThemeData(
+            useMaterial3: true,
+            brightness: Brightness.light,
+            appBarTheme: const AppBarTheme(
+              backgroundColor: Colors.transparent,
+              foregroundColor: Color(0xFF2C2F31),
+              surfaceTintColor: Colors.transparent,
+              centerTitle: true,
+            ),
+            colorScheme: const ColorScheme.light(
+              surface: Color(0xFFF7F8FA), // --cc-bg
+              onSurface: Color(0xFF2C2F31), // --cc-primary-color
+              primary: Color(0xFF30363C), // --cc-btn-primary-bg
+              onPrimary: Color(0xFFFFFFFF), // --cc-btn-primary-color
+              secondary: Color(0xFF5E6266), // --cc-secondary-color
+              onSecondary: Color(0xFFFFFFFF),
+              surfaceVariant: Color(0xFFEAEFF2), // --cc-cookie-category-block-bg
+              outline: Color(0xFFDCE3E8), // --cc-separator-border-color
+            ),
+            scaffoldBackgroundColor: const Color(0xFFF7F8FA),
+            dividerColor: const Color(0xFFDCE3E8),
+            textTheme: const TextTheme(
+              bodyLarge: TextStyle(color: Color(0xFF2C2F31)),
+              bodySmall: TextStyle(color: Color(0xFF5E6266)),
+            ),
+            switchTheme: SwitchThemeData(
+              thumbColor: MaterialStateProperty.resolveWith((states) {
+                return states.contains(MaterialState.selected)
+                    ? const Color(0xFF30363C)
+                    : const Color(0xFF9EAAB4);
+              }),
+              trackColor: MaterialStateProperty.resolveWith((states) {
+                return states.contains(MaterialState.selected)
+                    ? const Color(0xFF30363C).withValues(alpha: 0.35)
+                    : const Color(0xFFD7DDE2);
+              }),
+            ),
+            sliderTheme: SliderThemeData(
+              activeTrackColor: Color(0xFF30363C),
+              inactiveTrackColor: Color(0xFFD7DDE2),
+              thumbColor: Color(0xFF30363C),
+              overlayColor: Color(0xFF30363C).withValues(alpha: 0.12),
+            ),
+          ),
+          darkTheme: ThemeData(
+            useMaterial3: true,
+            brightness: Brightness.dark,
+            colorScheme: const ColorScheme.dark(
+              surface: Color(0xFF161A1C), // --cc-bg
+              onSurface: Color(0xFFEBF3F6), // --cc-primary-color
+              primary: Color(0xFFC2D0E0), // --cc-btn-primary-bg
+              onPrimary: Color(0xFF161A1C), // --cc-btn-primary-color
+              secondary: Color(0xFFAEBBC5), // --cc-secondary-color
+              onSecondary: Color(0xFF161A1C),
+              surfaceVariant: Color(0xFF1E2428), // --cc-cookie-category-block-bg
+              outline: Color(0xFF222A30), // --cc-separator-border-color
+            ),
+            scaffoldBackgroundColor: const Color(0xFF161A1C),
+            textTheme: const TextTheme(
+              bodyLarge: TextStyle(color: Color(0xFFEBF3F6)),
+              bodySmall: TextStyle(color: Color(0xFFAEBBC5)),
+            ),
+          ),
+          themeMode: currentMode,
+          home: const MyHomePage(title: 'NoizStream'),
+          debugShowCheckedModeBanner: false,
+        );
+      },
     );
   }
 }
@@ -159,122 +226,148 @@ class _MyHomePageState extends State<MyHomePage> {
   void _openSettingsPanel() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF27384E),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      elevation: 0,
       builder: (BuildContext context) {
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setModalState) {
+            final theme = Theme.of(context);
+            final isDark = theme.brightness == Brightness.dark;
+            final backgroundColor = isDark
+                ? theme.colorScheme.surface
+                : const Color(0xFFFFFFFF);
+
             return SafeArea(
               child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20.0,
-                  vertical: 24.0,
+                padding: EdgeInsets.fromLTRB(
+                  16.0,
+                  24.0,
+                  16.0,
+                  MediaQuery.of(context).viewInsets.bottom + 24.0,
                 ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      "Settings",
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                child: Container(
+                  padding: const EdgeInsets.all(24.0),
+                  decoration: BoxDecoration(
+                    color: backgroundColor,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.1),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
                       ),
-                    ),
-                    const SizedBox(height: 20),
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text(
-                        "Play on Startup",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      subtitle: const Text(
-                        "Start playing audio immediately when app opens",
-                        style: TextStyle(color: Colors.white54, fontSize: 12),
-                      ),
-                      value: playOnStartup,
-                      activeThumbColor: Colors.lightBlue.shade200,
-                      onChanged: (bool value) {
-                        setModalState(() => playOnStartup = value);
-                        setState(() {});
-                      },
-                    ),
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text(
-                        "High Quality Audio",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      subtitle: const Text(
-                        "Use uncompressed .wav files instead of .mp3",
-                        style: TextStyle(color: Colors.white54, fontSize: 12),
-                      ),
-                      value: highQualityAudio,
-                      activeThumbColor: Colors.lightBlue.shade200,
-                      onChanged: (bool value) {
-                        setModalState(() => highQualityAudio = value);
-                        setState(() {});
-                      },
-                    ),
-                    const SizedBox(height: 10),
-                    Column(
+                    ],
+                  ),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              "Crossfade Duration",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 16,
-                              ),
-                            ),
-                            Text(
-                              "${crossfadeDuration.toInt()}s",
-                              style: TextStyle(
-                                color: Colors.lightBlue.shade200,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        const Text(
-                          "Transition time between changing noise types",
-                          style: TextStyle(color: Colors.white54, fontSize: 12),
-                        ),
-                        SliderTheme(
-                          data: SliderTheme.of(context).copyWith(
-                            trackHeight: 4,
-                            activeTrackColor: Colors.lightBlue.shade200,
-                            inactiveTrackColor: Colors.white10,
-                            thumbColor: Colors.lightBlue.shade100,
+                        Text(
+                          "Settings",
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: theme.colorScheme.onSurface,
                           ),
-                          child: Slider(
-                            value: crossfadeDuration,
-                            min: 1,
-                            max: 10,
-                            divisions: 9,
-                            onChanged: (double value) {
-                              setModalState(() => crossfadeDuration = value);
-                              setState(() {});
-                            },
+                        ),
+                        const SizedBox(height: 16),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(
+                            "Dark Mode",
+                            style: TextStyle(
+                              color: theme.colorScheme.onSurface,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
+                          subtitle: Text(
+                            "Switch between light and dark theme",
+                            style: TextStyle(
+                              color: theme.colorScheme.secondary,
+                              fontSize: 12,
+                            ),
+                          ),
+                          value: themeNotifier.value == ThemeMode.dark,
+                          activeColor: theme.colorScheme.primary,
+                          onChanged: (bool value) {
+                            themeNotifier.value =
+                                value ? ThemeMode.dark : ThemeMode.light;
+                            setModalState(() {});
+                            setState(() {});
+                          },
+                        ),
+                        Divider(color: theme.dividerColor),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(
+                            "Play on Startup",
+                            style: TextStyle(
+                              color: theme.colorScheme.onSurface,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          subtitle: Text(
+                            "Start playing audio immediately when app opens",
+                            style: TextStyle(
+                              color: theme.colorScheme.secondary,
+                              fontSize: 12,
+                            ),
+                          ),
+                          value: playOnStartup,
+                          activeColor: theme.colorScheme.primary,
+                          onChanged: (bool value) {
+                            setModalState(() => playOnStartup = value);
+                            setState(() {});
+                          },
+                        ),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(
+                            "High Quality Audio",
+                            style: TextStyle(
+                              color: theme.colorScheme.onSurface,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          subtitle: Text(
+                            "Enable 48kHz lossless streaming (uses more data)",
+                            style: TextStyle(
+                              color: theme.colorScheme.secondary,
+                              fontSize: 12,
+                            ),
+                          ),
+                          value: highQualityAudio,
+                          activeColor: theme.colorScheme.primary,
+                          onChanged: (bool value) {
+                            setModalState(() => highQualityAudio = value);
+                            setState(() {});
+                          },
+                        ),
+                        Divider(color: theme.dividerColor),
+                        const SizedBox(height: 8),
+                        Text(
+                          "Crossfade Duration: ${crossfadeDuration.toInt()}s",
+                          style: TextStyle(
+                            color: theme.colorScheme.onSurface,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Slider(
+                          value: crossfadeDuration,
+                          min: 1,
+                          max: 10,
+                          divisions: 9,
+                          activeColor: theme.colorScheme.primary,
+                          onChanged: (double value) {
+                            setModalState(() => crossfadeDuration = value);
+                            setState(() {});
+                          },
                         ),
                       ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             );
@@ -286,23 +379,28 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
-        foregroundColor: const Color.fromARGB(255, 209, 217, 226),
+        foregroundColor: theme.colorScheme.onSurface,
         centerTitle: true,
         title: Text(
           widget.title,
-          style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            fontSize: 32,
+            fontWeight: FontWeight.bold,
+            color: theme.colorScheme.onSurface,
+          ),
         ),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 10.0),
             child: IconButton(
-              icon: const Icon(Icons.settings),
+              icon: Icon(Icons.settings, color: theme.colorScheme.onSurface),
               onPressed: _openSettingsPanel,
             ),
           ),
@@ -311,13 +409,7 @@ class _MyHomePageState extends State<MyHomePage> {
       body: Container(
         width: double.infinity,
         height: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF4C6A82), Color(0xFF27384E)],
-          ),
-        ),
+        color: theme.scaffoldBackgroundColor,
         child: SafeArea(
           child: LayoutBuilder(
             builder: (context, constraints) {
@@ -431,9 +523,13 @@ class _MyHomePageState extends State<MyHomePage> {
                                 vertical: 12,
                               ),
                               decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.06),
+                                color: theme.brightness == Brightness.dark
+                                    ? Colors.white.withValues(alpha: 0.06)
+                                    : Colors.white,
                                 borderRadius: BorderRadius.circular(18),
-                                border: Border.all(color: Colors.white10),
+                                border: Border.all(
+                                  color: theme.colorScheme.outline,
+                                ),
                               ),
                               child: Row(
                                 children: [
@@ -463,14 +559,17 @@ class _MyHomePageState extends State<MyHomePage> {
                                                                   value: k,
                                                                   child: Text(
                                                                     k,
+                                                                    style: TextStyle(
+                                                                      color: theme.colorScheme.onSurface,
+                                                                    ),
                                                                   ),
                                                                 ),
                                                           )
                                                           .toList(),
                                               child: Text(
                                                 activePresetName ?? 'MIX',
-                                                style: const TextStyle(
-                                                  color: Colors.white70,
+                                                style: TextStyle(
+                                                  color: theme.colorScheme.secondary,
                                                   fontSize: 12,
                                                   fontWeight: FontWeight.w600,
                                                 ),
@@ -482,18 +581,16 @@ class _MyHomePageState extends State<MyHomePage> {
                                         Text(
                                           '24:15',
                                           style: TextStyle(
-                                            color: Colors.white.withValues(
-                                              alpha: 0.9,
-                                            ),
+                                            color: theme.colorScheme.onSurface,
                                             fontSize: 16,
                                             fontWeight: FontWeight.bold,
                                           ),
                                         ),
                                         const SizedBox(height: 4),
-                                        const Text(
+                                        Text(
                                           'min remaining',
                                           style: TextStyle(
-                                            color: Colors.white38,
+                                            color: theme.colorScheme.secondary.withValues(alpha: 0.7),
                                             fontSize: 11,
                                           ),
                                         ),
@@ -505,10 +602,10 @@ class _MyHomePageState extends State<MyHomePage> {
                                     height: 64,
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
-                                      color: const Color(0xFFD3E4F6),
+                                      color: theme.colorScheme.primary,
                                       boxShadow: [
                                         BoxShadow(
-                                          color: Colors.black.withValues(
+                                          color: theme.colorScheme.primary.withValues(
                                             alpha: 0.35,
                                           ),
                                           blurRadius: 8,
@@ -519,9 +616,7 @@ class _MyHomePageState extends State<MyHomePage> {
                                     child: IconButton(
                                       icon: Icon(
                                         Icons.pause,
-                                        color: selectedIndex == -1
-                                            ? Colors.black26
-                                            : Colors.black87,
+                                        color: theme.colorScheme.onPrimary,
                                       ),
                                       onPressed: selectedIndex == -1
                                           ? null
@@ -538,8 +633,8 @@ class _MyHomePageState extends State<MyHomePage> {
                                         icon: Icon(
                                           Icons.repeat,
                                           color: selectedIndex == -1
-                                              ? Colors.white30
-                                              : Colors.white70,
+                                              ? theme.colorScheme.secondary.withValues(alpha: 0.3)
+                                              : theme.colorScheme.secondary,
                                         ),
                                       ),
                                       IconButton(
@@ -549,8 +644,8 @@ class _MyHomePageState extends State<MyHomePage> {
                                         icon: Icon(
                                           Icons.shuffle,
                                           color: selectedIndex == -1
-                                              ? Colors.white30
-                                              : Colors.white70,
+                                              ? theme.colorScheme.secondary.withValues(alpha: 0.3)
+                                              : theme.colorScheme.secondary,
                                         ),
                                       ),
                                     ],
