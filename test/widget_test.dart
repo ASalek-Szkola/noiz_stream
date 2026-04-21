@@ -1,30 +1,93 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:noiz_stream/controllers/app_settings_controller.dart';
 import 'package:noiz_stream/main.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  setUp(() {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+  });
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+  testWidgets('renders mixer controls', (WidgetTester tester) async {
+    await tester.pumpWidget(MyApp());
+    await tester.pumpAndSettle();
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+    expect(find.text('NoizStream'), findsOneWidget);
+    expect(find.text('Brown Noise'), findsOneWidget);
+    expect(find.text('Pink Noise'), findsOneWidget);
+    expect(find.text('Green Noise'), findsOneWidget);
+    expect(find.text('White Noise'), findsOneWidget);
+    expect(find.byIcon(Icons.play_arrow), findsOneWidget);
+  });
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+  testWidgets('loads persisted settings and autoplays on startup', (
+    WidgetTester tester,
+  ) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      AppSettingsController.themeModeKey: 'dark',
+      AppSettingsController.playOnStartupKey: true,
+      AppSettingsController.highQualityAudioKey: true,
+      AppSettingsController.crossfadeDurationKey: 7.0,
+    });
+
+    await tester.pumpWidget(MyApp());
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.pause), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.settings));
+    await tester.pumpAndSettle();
+
+    final darkModeTile = tester.widget<SwitchListTile>(
+      find.widgetWithText(SwitchListTile, 'Dark Mode'),
+    );
+    final playOnStartupTile = tester.widget<SwitchListTile>(
+      find.widgetWithText(SwitchListTile, 'Play on Startup'),
+    );
+    final highQualityAudioTile = tester.widget<SwitchListTile>(
+      find.widgetWithText(SwitchListTile, 'High Quality Audio'),
+    );
+
+    expect(darkModeTile.value, isTrue);
+    expect(playOnStartupTile.value, isTrue);
+    expect(highQualityAudioTile.value, isTrue);
+    expect(find.text('Crossfade Duration: 7s'), findsOneWidget);
+  });
+
+  testWidgets('persists toggled settings from sheet', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(MyApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.settings));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(SwitchListTile, 'Dark Mode'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(SwitchListTile, 'Play on Startup'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(SwitchListTile, 'High Quality Audio'));
+    await tester.pumpAndSettle();
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString(AppSettingsController.themeModeKey), 'dark');
+    expect(prefs.getBool(AppSettingsController.playOnStartupKey), isTrue);
+    expect(prefs.getBool(AppSettingsController.highQualityAudioKey), isTrue);
+  });
+
+  test('persists crossfade duration in settings controller', () async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final controller = AppSettingsController();
+
+    await controller.load();
+    await controller.setCrossfadeDuration(6.0);
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getDouble(AppSettingsController.crossfadeDurationKey), 6.0);
   });
 }

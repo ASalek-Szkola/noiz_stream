@@ -3,22 +3,37 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'controllers/app_settings_controller.dart';
+import 'controllers/playback_session_controller.dart';
 import 'noise_card.dart';
 
 void main() {
-  runApp(const MyApp());
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(MyApp());
 }
 
-final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.light);
+class MyApp extends StatefulWidget {
+  MyApp({super.key, AppSettingsController? settingsController})
+    : settingsController = settingsController ?? AppSettingsController();
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final AppSettingsController settingsController;
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  @override
+  void initState() {
+    super.initState();
+    unawaited(widget.settingsController.load());
+  }
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<ThemeMode>(
-      valueListenable: themeNotifier,
-      builder: (_, ThemeMode currentMode, __) {
+    return AnimatedBuilder(
+      animation: widget.settingsController,
+      builder: (_, __) {
         return MaterialApp(
           title: 'NoizStream',
           theme: ThemeData(
@@ -88,8 +103,11 @@ class MyApp extends StatelessWidget {
               bodySmall: TextStyle(color: Color(0xFFAEBBC5)),
             ),
           ),
-          themeMode: currentMode,
-          home: const MyHomePage(title: 'NoizStream'),
+          themeMode: widget.settingsController.themeMode,
+          home: MyHomePage(
+            title: 'NoizStream',
+            settingsController: widget.settingsController,
+          ),
           debugShowCheckedModeBanner: false,
         );
       },
@@ -98,8 +116,14 @@ class MyApp extends StatelessWidget {
 }
 
 class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
+  const MyHomePage({
+    super.key,
+    required this.title,
+    required this.settingsController,
+  });
+
   final String title;
+  final AppSettingsController settingsController;
 
   @override
   State<MyHomePage> createState() => _MyHomePageState();
@@ -134,6 +158,8 @@ class _MyHomePageState extends State<MyHomePage> {
   final Set<String> customPresetNames = <String>{};
 
   static const String _customPresetsKey = 'custom_presets_v1';
+  static const int _defaultPresetSteps = 20;
+  static const int _highQualityPresetSteps = 40;
   static const List<Color> _presetColorOptions = <Color>[
     Color(0xFF4B5A7A),
     Color(0xFF2F8F60),
@@ -152,9 +178,12 @@ class _MyHomePageState extends State<MyHomePage> {
   // currently active preset name for UI
   String? activePresetName;
 
+  late final PlaybackSessionController _sessionController;
+  bool _startupBehaviorApplied = false;
+
+  bool get _hasActiveNoiseSelection => selectedIndex != -1;
+
   Timer? _presetTimer;
-  final int _presetSteps = 20;
-  final Duration _presetDuration = const Duration(milliseconds: 450);
 
   void _applyPreset(String name) {
     final target = presets[name];
@@ -186,8 +215,14 @@ class _MyHomePageState extends State<MyHomePage> {
     final targetGreen = target['green'] ?? 0.0;
     final targetWhite = target['white'] ?? 0.0;
 
-    final int steps = _presetSteps;
-    final int stepMs = (_presetDuration.inMilliseconds ~/ steps);
+    final bool highQuality = widget.settingsController.highQualityAudio;
+    final int steps = highQuality
+        ? _highQualityPresetSteps
+        : _defaultPresetSteps;
+    final int totalMs = (widget.settingsController.crossfadeDuration * 1000)
+        .round();
+    final int rawStepMs = totalMs ~/ steps;
+    final int stepMs = rawStepMs < 16 ? 16 : rawStepMs;
     final stepDuration = Duration(milliseconds: stepMs);
     int step = 0;
 
@@ -196,6 +231,7 @@ class _MyHomePageState extends State<MyHomePage> {
       selectedIndex = dominantIndex;
       activePresetName = name;
     });
+    _sessionController.onSelectionChanged(_hasActiveNoiseSelection);
 
     _presetTimer = Timer.periodic(stepDuration, (timer) {
       step++;
@@ -316,6 +352,64 @@ class _MyHomePageState extends State<MyHomePage> {
     } catch (_) {
       // Ignore malformed local data and continue with built-in presets.
     }
+  }
+
+  void _handleSettingsChanged() {
+    if (!mounted) return;
+
+    if (widget.settingsController.isLoaded && !_startupBehaviorApplied) {
+      _sessionController.applyPlayOnStartup(
+        enabled: widget.settingsController.playOnStartup,
+        hasSelection: _hasActiveNoiseSelection,
+      );
+      _startupBehaviorApplied = true;
+    }
+
+    setState(() {});
+  }
+
+  void _handleSessionChanged() {
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  void _toggleNoiseSelection(int index) {
+    setState(() {
+      selectedIndex = selectedIndex == index ? -1 : index;
+      if (selectedIndex == -1) {
+        activePresetName = null;
+      }
+    });
+    _sessionController.onSelectionChanged(_hasActiveNoiseSelection);
+  }
+
+  void _setNoiseLevel(int index, double value) {
+    setState(() {
+      switch (index) {
+        case 0:
+          brownSliderValue = value;
+          break;
+        case 1:
+          pinkSliderValue = value;
+          break;
+        case 2:
+          greenSliderValue = value;
+          break;
+        case 3:
+          whiteSliderValue = value;
+          break;
+      }
+
+      selectedIndex = index;
+      activePresetName = null;
+    });
+
+    _sessionController.onSelectionChanged(true);
+  }
+
+  void _togglePlayPause() {
+    if (!_hasActiveNoiseSelection) return;
+    _sessionController.togglePlayPause();
   }
 
   Future<void> _saveCurrentMixAsPreset(String name, Color color) async {
@@ -462,22 +556,30 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   void initState() {
     super.initState();
+    _sessionController = PlaybackSessionController();
+    _sessionController.addListener(_handleSessionChanged);
+    widget.settingsController.addListener(_handleSettingsChanged);
+
     // initialize the preset names from the presets map
     presetNamesNotifier.value = presets.keys.toList();
+
+    if (widget.settingsController.isLoaded) {
+      _handleSettingsChanged();
+    }
+
     unawaited(_loadCustomPresets());
   }
 
   @override
   void dispose() {
+    widget.settingsController.removeListener(_handleSettingsChanged);
+    _sessionController
+      ..removeListener(_handleSessionChanged)
+      ..dispose();
     _presetTimer?.cancel();
     presetNamesNotifier.dispose();
     super.dispose();
   }
-
-  // Settings
-  bool playOnStartup = false;
-  double crossfadeDuration = 3.0;
-  bool highQualityAudio = false;
 
   void _openSettingsPanel() {
     showModalBottomSheet(
@@ -489,6 +591,7 @@ class _MyHomePageState extends State<MyHomePage> {
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setModalState) {
             final theme = Theme.of(context);
+            final settings = widget.settingsController;
             final isDark = theme.brightness == Brightness.dark;
             final backgroundColor = isDark
                 ? theme.colorScheme.surface
@@ -545,14 +648,15 @@ class _MyHomePageState extends State<MyHomePage> {
                               fontSize: 12,
                             ),
                           ),
-                          value: themeNotifier.value == ThemeMode.dark,
+                          value: settings.themeMode == ThemeMode.dark,
                           activeThumbColor: theme.colorScheme.primary,
                           onChanged: (bool value) {
-                            themeNotifier.value = value
-                                ? ThemeMode.dark
-                                : ThemeMode.light;
+                            unawaited(
+                              settings.setThemeMode(
+                                value ? ThemeMode.dark : ThemeMode.light,
+                              ),
+                            );
                             setModalState(() {});
-                            setState(() {});
                           },
                         ),
                         Divider(color: theme.dividerColor),
@@ -572,11 +676,11 @@ class _MyHomePageState extends State<MyHomePage> {
                               fontSize: 12,
                             ),
                           ),
-                          value: playOnStartup,
+                          value: settings.playOnStartup,
                           activeThumbColor: theme.colorScheme.primary,
                           onChanged: (bool value) {
-                            setModalState(() => playOnStartup = value);
-                            setState(() {});
+                            unawaited(settings.setPlayOnStartup(value));
+                            setModalState(() {});
                           },
                         ),
                         SwitchListTile(
@@ -595,31 +699,39 @@ class _MyHomePageState extends State<MyHomePage> {
                               fontSize: 12,
                             ),
                           ),
-                          value: highQualityAudio,
+                          value: settings.highQualityAudio,
                           activeThumbColor: theme.colorScheme.primary,
                           onChanged: (bool value) {
-                            setModalState(() => highQualityAudio = value);
-                            setState(() {});
+                            unawaited(settings.setHighQualityAudio(value));
+                            setModalState(() {});
                           },
                         ),
                         Divider(color: theme.dividerColor),
                         const SizedBox(height: 8),
                         Text(
-                          "Crossfade Duration: ${crossfadeDuration.toInt()}s",
+                          "Crossfade Duration: ${settings.crossfadeDuration.toInt()}s",
                           style: TextStyle(
                             color: theme.colorScheme.onSurface,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                         Slider(
-                          value: crossfadeDuration,
+                          value: settings.crossfadeDuration,
                           min: 1,
                           max: 10,
                           divisions: 9,
                           activeColor: theme.colorScheme.primary,
                           onChanged: (double value) {
-                            setModalState(() => crossfadeDuration = value);
-                            setState(() {});
+                            unawaited(
+                              settings.setCrossfadeDuration(
+                                value,
+                                persist: false,
+                              ),
+                            );
+                            setModalState(() {});
+                          },
+                          onChangeEnd: (value) {
+                            unawaited(settings.setCrossfadeDuration(value));
                           },
                         ),
                       ],
@@ -699,14 +811,8 @@ class _MyHomePageState extends State<MyHomePage> {
                               subtitle: "(Deep)",
                               value: brownSliderValue,
                               isSelected: selectedIndex == 0,
-                              onTap: () => setState(() {
-                                selectedIndex = selectedIndex == 0 ? -1 : 0;
-                              }),
-                              onChanged: (val) => setState(() {
-                                brownSliderValue = val;
-                                selectedIndex = 0;
-                                activePresetName = null;
-                              }),
+                              onTap: () => _toggleNoiseSelection(0),
+                              onChanged: (val) => _setNoiseLevel(0, val),
                               icon: Icons.equalizer,
                               accentColor: const Color(0xFFC38965),
                               wavePattern: 0,
@@ -716,14 +822,8 @@ class _MyHomePageState extends State<MyHomePage> {
                               subtitle: "(Nature)",
                               value: pinkSliderValue,
                               isSelected: selectedIndex == 1,
-                              onTap: () => setState(() {
-                                selectedIndex = selectedIndex == 1 ? -1 : 1;
-                              }),
-                              onChanged: (val) => setState(() {
-                                pinkSliderValue = val;
-                                selectedIndex = 1;
-                                activePresetName = null;
-                              }),
+                              onTap: () => _toggleNoiseSelection(1),
+                              onChanged: (val) => _setNoiseLevel(1, val),
                               icon: Icons.nature,
                               accentColor: const Color(0xFFE484A3),
                               wavePattern: 1,
@@ -733,14 +833,8 @@ class _MyHomePageState extends State<MyHomePage> {
                               subtitle: "(Forest)",
                               value: greenSliderValue,
                               isSelected: selectedIndex == 2,
-                              onTap: () => setState(() {
-                                selectedIndex = selectedIndex == 2 ? -1 : 2;
-                              }),
-                              onChanged: (val) => setState(() {
-                                greenSliderValue = val;
-                                selectedIndex = 2;
-                                activePresetName = null;
-                              }),
+                              onTap: () => _toggleNoiseSelection(2),
+                              onChanged: (val) => _setNoiseLevel(2, val),
                               icon: Icons.park,
                               accentColor: const Color(0xFF6DCA78),
                               wavePattern: 2,
@@ -750,14 +844,8 @@ class _MyHomePageState extends State<MyHomePage> {
                               subtitle: "(Detail)",
                               value: whiteSliderValue,
                               isSelected: selectedIndex == 3,
-                              onTap: () => setState(() {
-                                selectedIndex = selectedIndex == 3 ? -1 : 3;
-                              }),
-                              onChanged: (val) => setState(() {
-                                whiteSliderValue = val;
-                                selectedIndex = 3;
-                                activePresetName = null;
-                              }),
+                              onTap: () => _toggleNoiseSelection(3),
+                              onChanged: (val) => _setNoiseLevel(3, val),
                               icon: Icons.blur_on,
                               accentColor: const Color(0xFFD1D1D1),
                               wavePattern: 3,
@@ -771,9 +859,9 @@ class _MyHomePageState extends State<MyHomePage> {
                           vertical: 18,
                         ),
                         child: AbsorbPointer(
-                          absorbing: selectedIndex == -1,
+                          absorbing: !_hasActiveNoiseSelection,
                           child: Opacity(
-                            opacity: selectedIndex == -1 ? 0.5 : 1.0,
+                            opacity: !_hasActiveNoiseSelection ? 0.5 : 1.0,
                             child: Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 16,
@@ -939,7 +1027,7 @@ class _MyHomePageState extends State<MyHomePage> {
                                         ),
                                         const SizedBox(height: 8),
                                         Text(
-                                          '24:15',
+                                          _sessionController.formattedRemaining,
                                           style: TextStyle(
                                             color: theme.colorScheme.onSurface,
                                             fontSize: 16,
@@ -948,7 +1036,9 @@ class _MyHomePageState extends State<MyHomePage> {
                                         ),
                                         const SizedBox(height: 4),
                                         Text(
-                                          'min remaining',
+                                          _sessionController.isPlaying
+                                              ? 'session remaining'
+                                              : 'session paused',
                                           style: TextStyle(
                                             color: theme.colorScheme.secondary
                                                 .withValues(alpha: 0.7),
@@ -975,38 +1065,45 @@ class _MyHomePageState extends State<MyHomePage> {
                                     ),
                                     child: IconButton(
                                       icon: Icon(
-                                        Icons.pause,
+                                        _sessionController.isPlaying
+                                            ? Icons.pause
+                                            : Icons.play_arrow,
                                         color: theme.colorScheme.onPrimary,
                                       ),
-                                      onPressed: selectedIndex == -1
-                                          ? null
-                                          : () {},
+                                      onPressed: _hasActiveNoiseSelection
+                                          ? _togglePlayPause
+                                          : null,
                                     ),
                                   ),
                                   const SizedBox(width: 14),
                                   Column(
                                     children: [
                                       IconButton(
-                                        onPressed: selectedIndex == -1
+                                        onPressed: !_hasActiveNoiseSelection
                                             ? null
-                                            : () {},
+                                            : _sessionController.toggleRepeat,
                                         icon: Icon(
                                           Icons.repeat,
-                                          color: selectedIndex == -1
+                                          color: !_hasActiveNoiseSelection
                                               ? theme.colorScheme.secondary
                                                     .withValues(alpha: 0.3)
+                                              : _sessionController.repeatEnabled
+                                              ? theme.colorScheme.primary
                                               : theme.colorScheme.secondary,
                                         ),
                                       ),
                                       IconButton(
-                                        onPressed: selectedIndex == -1
+                                        onPressed: !_hasActiveNoiseSelection
                                             ? null
-                                            : () {},
+                                            : _sessionController.toggleShuffle,
                                         icon: Icon(
                                           Icons.shuffle,
-                                          color: selectedIndex == -1
+                                          color: !_hasActiveNoiseSelection
                                               ? theme.colorScheme.secondary
                                                     .withValues(alpha: 0.3)
+                                              : _sessionController
+                                                    .shuffleEnabled
+                                              ? theme.colorScheme.primary
                                               : theme.colorScheme.secondary,
                                         ),
                                       ),
