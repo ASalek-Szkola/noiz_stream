@@ -1,11 +1,15 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'controllers/app_settings_controller.dart';
 import 'controllers/playback_session_controller.dart';
-import 'noise_card.dart';
+import 'data/default_presets.dart';
+import 'models/noise_mix.dart';
+import 'models/preset.dart';
+import 'services/preset_storage_service.dart';
+import 'widgets/noise_grid.dart';
+import 'widgets/save_preset_dialog.dart';
+import 'widgets/settings_sheet.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -33,7 +37,7 @@ class _MyAppState extends State<MyApp> {
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: widget.settingsController,
-      builder: (_, __) {
+      builder: (context, child) {
         return MaterialApp(
           title: 'NoizStream',
           theme: ThemeData(
@@ -157,19 +161,9 @@ class _MyHomePageState extends State<MyHomePage> {
 
   final Set<String> customPresetNames = <String>{};
 
-  static const String _customPresetsKey = 'custom_presets_v1';
   static const int _defaultPresetSteps = 20;
   static const int _highQualityPresetSteps = 40;
-  static const List<Color> _presetColorOptions = <Color>[
-    Color(0xFF4B5A7A),
-    Color(0xFF2F8F60),
-    Color(0xFF6D7AA8),
-    Color(0xFF4D4A8C),
-    Color(0xFFC8746A),
-    Color(0xFFC0A15C),
-    Color(0xFF5D8E9F),
-    Color(0xFF9A72A5),
-  ];
+  final PresetStorageService _presetStorageService = PresetStorageService();
 
   // Exposed preset names list (can be updated elsewhere). UI listens to this.
   final ValueNotifier<List<String>> presetNamesNotifier =
@@ -270,88 +264,53 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   Map<String, double> _currentMixValues() {
-    return {
-      'brown': brownSliderValue,
-      'pink': pinkSliderValue,
-      'green': greenSliderValue,
-      'white': whiteSliderValue,
-    };
+    return NoiseMix(
+      brown: brownSliderValue,
+      pink: pinkSliderValue,
+      green: greenSliderValue,
+      white: whiteSliderValue,
+    ).toMap();
   }
 
   Future<void> _persistCustomPresets() async {
-    final prefs = await SharedPreferences.getInstance();
     final payload = customPresetNames
         .map((name) {
           final levels = presets[name];
-          if (levels == null) return null;
-          final color = presetColors[name] ?? _presetColorOptions.first;
-          return {
-            'name': name,
-            'color': color.toARGB32(),
-            'brown': levels['brown'] ?? 0.0,
-            'pink': levels['pink'] ?? 0.0,
-            'green': levels['green'] ?? 0.0,
-            'white': levels['white'] ?? 0.0,
-          };
-        })
-        .whereType<Map<String, Object>>()
-        .toList();
+          if (levels == null) {
+            return null;
+          }
 
-    await prefs.setString(_customPresetsKey, jsonEncode(payload));
+          final color = presetColors[name] ?? presetColorOptions.first;
+          return Preset(
+            name: name,
+            mix: NoiseMix.fromMap(levels),
+            color: color,
+            isCustom: true,
+          );
+        })
+        .whereType<Preset>()
+        .toList(growable: false);
+
+    await _presetStorageService.saveCustomPresets(payload);
   }
 
   Future<void> _loadCustomPresets() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_customPresetsKey);
-    if (raw == null || raw.isEmpty) return;
+    final loadedPresets = await _presetStorageService.loadCustomPresets();
+    if (!mounted || loadedPresets.isEmpty) {
+      return;
+    }
 
-    try {
-      final decoded = jsonDecode(raw);
-      if (decoded is! List) return;
-
-      final loadedPresets = <String, Map<String, double>>{};
-      final loadedColors = <String, Color>{};
-
-      for (final entry in decoded) {
-        if (entry is! Map) continue;
-        final dynamic nameValue = entry['name'];
-        if (nameValue is! String) continue;
-
-        final name = nameValue.trim();
-        if (name.isEmpty) continue;
-
-        double readLevel(String key) {
-          final dynamic level = entry[key];
-          if (level is num) {
-            return level.toDouble().clamp(0.0, 1.0);
-          }
-          return 0.0;
-        }
-
-        final dynamic colorValue = entry['color'];
-        loadedPresets[name] = {
-          'brown': readLevel('brown'),
-          'pink': readLevel('pink'),
-          'green': readLevel('green'),
-          'white': readLevel('white'),
-        };
-        loadedColors[name] = colorValue is int
-            ? Color(colorValue)
-            : _presetColorOptions.first;
+    setState(() {
+      for (final preset in loadedPresets) {
+        presets[preset.name] = preset.mix.toMap();
+        presetColors[preset.name] = preset.color;
       }
 
-      if (!mounted || loadedPresets.isEmpty) return;
-      setState(() {
-        presets.addAll(loadedPresets);
-        presetColors.addAll(loadedColors);
-        customPresetNames
-          ..clear()
-          ..addAll(loadedPresets.keys);
-        presetNamesNotifier.value = presets.keys.toList();
-      });
-    } catch (_) {
-      // Ignore malformed local data and continue with built-in presets.
-    }
+      customPresetNames
+        ..clear()
+        ..addAll(loadedPresets.map((preset) => preset.name));
+      presetNamesNotifier.value = presets.keys.toList();
+    });
   }
 
   void _handleSettingsChanged() {
@@ -446,111 +405,22 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void _openSavePresetDialog() {
-    final TextEditingController nameController = TextEditingController();
-    Color selectedColor = activePresetName != null
-        ? (presetColors[activePresetName!] ?? _presetColorOptions.first)
-        : _presetColorOptions.first;
+    final selectedColor = activePresetName != null
+        ? (presetColors[activePresetName!] ?? presetColorOptions.first)
+        : presetColorOptions.first;
 
-    showDialog<void>(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        final theme = Theme.of(dialogContext);
-        return StatefulBuilder(
-          builder: (BuildContext _, StateSetter setDialogState) {
-            return AlertDialog(
-              title: const Text('Zapisz preset'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    TextField(
-                      controller: nameController,
-                      autofocus: true,
-                      textInputAction: TextInputAction.done,
-                      decoration: const InputDecoration(
-                        labelText: 'Nazwa presetu',
-                        hintText: 'Np. Morning Focus',
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Kolor presetu',
-                      style: TextStyle(
-                        color: theme.colorScheme.onSurface,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      children: _presetColorOptions.map((color) {
-                        final isSelected =
-                            color.toARGB32() == selectedColor.toARGB32();
-                        return InkWell(
-                          borderRadius: BorderRadius.circular(20),
-                          onTap: () {
-                            setDialogState(() {
-                              selectedColor = color;
-                            });
-                          },
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 180),
-                            width: 30,
-                            height: 30,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: color,
-                              border: Border.all(
-                                color: isSelected
-                                    ? theme.colorScheme.onSurface
-                                    : Colors.transparent,
-                                width: 2,
-                              ),
-                            ),
-                            child: isSelected
-                                ? Icon(
-                                    Icons.check,
-                                    size: 16,
-                                    color: theme.colorScheme.onPrimary,
-                                  )
-                                : null,
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: const Text('Anuluj'),
-                ),
-                FilledButton(
-                  onPressed: () {
-                    final name = nameController.text.trim();
-                    if (name.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Podaj nazwę presetu.')),
-                      );
-                      return;
-                    }
-
-                    Navigator.of(dialogContext).pop();
-                    unawaited(_saveCurrentMixAsPreset(name, selectedColor));
-                  },
-                  child: const Text('Zapisz'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    ).then((_) {
-      nameController.dispose();
-    });
+    unawaited(
+      showSavePresetDialog(
+        context: context,
+        initialColor: selectedColor,
+        colorOptions: presetColorOptions,
+      ).then((result) {
+        if (result == null) {
+          return;
+        }
+        unawaited(_saveCurrentMixAsPreset(result.name, result.color));
+      }),
+    );
   }
 
   @override
@@ -582,167 +452,11 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void _openSettingsPanel() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      builder: (BuildContext context) {
-        return StatefulBuilder(
-          builder: (BuildContext context, StateSetter setModalState) {
-            final theme = Theme.of(context);
-            final settings = widget.settingsController;
-            final isDark = theme.brightness == Brightness.dark;
-            final backgroundColor = isDark
-                ? theme.colorScheme.surface
-                : const Color(0xFFFFFFFF);
-
-            return SafeArea(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  16.0,
-                  24.0,
-                  16.0,
-                  MediaQuery.of(context).viewInsets.bottom + 24.0,
-                ),
-                child: Container(
-                  padding: const EdgeInsets.all(24.0),
-                  decoration: BoxDecoration(
-                    color: backgroundColor,
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.1),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          "Settings",
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: theme.colorScheme.onSurface,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        SwitchListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(
-                            "Dark Mode",
-                            style: TextStyle(
-                              color: theme.colorScheme.onSurface,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          subtitle: Text(
-                            "Switch between light and dark theme",
-                            style: TextStyle(
-                              color: theme.colorScheme.secondary,
-                              fontSize: 12,
-                            ),
-                          ),
-                          value: settings.themeMode == ThemeMode.dark,
-                          activeThumbColor: theme.colorScheme.primary,
-                          onChanged: (bool value) {
-                            unawaited(
-                              settings.setThemeMode(
-                                value ? ThemeMode.dark : ThemeMode.light,
-                              ),
-                            );
-                            setModalState(() {});
-                          },
-                        ),
-                        Divider(color: theme.dividerColor),
-                        SwitchListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(
-                            "Play on Startup",
-                            style: TextStyle(
-                              color: theme.colorScheme.onSurface,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          subtitle: Text(
-                            "Start playing audio immediately when app opens",
-                            style: TextStyle(
-                              color: theme.colorScheme.secondary,
-                              fontSize: 12,
-                            ),
-                          ),
-                          value: settings.playOnStartup,
-                          activeThumbColor: theme.colorScheme.primary,
-                          onChanged: (bool value) {
-                            unawaited(settings.setPlayOnStartup(value));
-                            setModalState(() {});
-                          },
-                        ),
-                        SwitchListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(
-                            "High Quality Audio",
-                            style: TextStyle(
-                              color: theme.colorScheme.onSurface,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          subtitle: Text(
-                            "Enable 48kHz lossless streaming (uses more data)",
-                            style: TextStyle(
-                              color: theme.colorScheme.secondary,
-                              fontSize: 12,
-                            ),
-                          ),
-                          value: settings.highQualityAudio,
-                          activeThumbColor: theme.colorScheme.primary,
-                          onChanged: (bool value) {
-                            unawaited(settings.setHighQualityAudio(value));
-                            setModalState(() {});
-                          },
-                        ),
-                        Divider(color: theme.dividerColor),
-                        const SizedBox(height: 8),
-                        Text(
-                          "Crossfade Duration: ${settings.crossfadeDuration.toInt()}s",
-                          style: TextStyle(
-                            color: theme.colorScheme.onSurface,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        Slider(
-                          value: settings.crossfadeDuration,
-                          min: 1,
-                          max: 10,
-                          divisions: 9,
-                          activeColor: theme.colorScheme.primary,
-                          onChanged: (double value) {
-                            unawaited(
-                              settings.setCrossfadeDuration(
-                                value,
-                                persist: false,
-                              ),
-                            );
-                            setModalState(() {});
-                          },
-                          onChangeEnd: (value) {
-                            unawaited(settings.setCrossfadeDuration(value));
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            );
-          },
-        );
-      },
+    unawaited(
+      showSettingsSheet(
+        context: context,
+        settingsController: widget.settingsController,
+      ),
     );
   }
 
@@ -791,67 +505,14 @@ class _MyHomePageState extends State<MyHomePage> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                        child: GridView(
-                          primary: false,
-                          padding: const EdgeInsets.only(top: 12, bottom: 12),
-                          physics: const NeverScrollableScrollPhysics(),
-                          shrinkWrap: true,
-                          gridDelegate:
-                              const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 2,
-                                crossAxisSpacing: 14,
-                                mainAxisSpacing: 14,
-                                mainAxisExtent: 170, // Fixed height
-                              ),
-                          children: <Widget>[
-                            NoiseCard(
-                              title: "Brown Noise",
-                              subtitle: "(Deep)",
-                              value: brownSliderValue,
-                              isSelected: selectedIndex == 0,
-                              onTap: () => _toggleNoiseSelection(0),
-                              onChanged: (val) => _setNoiseLevel(0, val),
-                              icon: Icons.equalizer,
-                              accentColor: const Color(0xFFC38965),
-                              wavePattern: 0,
-                            ),
-                            NoiseCard(
-                              title: "Pink Noise",
-                              subtitle: "(Nature)",
-                              value: pinkSliderValue,
-                              isSelected: selectedIndex == 1,
-                              onTap: () => _toggleNoiseSelection(1),
-                              onChanged: (val) => _setNoiseLevel(1, val),
-                              icon: Icons.nature,
-                              accentColor: const Color(0xFFE484A3),
-                              wavePattern: 1,
-                            ),
-                            NoiseCard(
-                              title: "Green Noise",
-                              subtitle: "(Forest)",
-                              value: greenSliderValue,
-                              isSelected: selectedIndex == 2,
-                              onTap: () => _toggleNoiseSelection(2),
-                              onChanged: (val) => _setNoiseLevel(2, val),
-                              icon: Icons.park,
-                              accentColor: const Color(0xFF6DCA78),
-                              wavePattern: 2,
-                            ),
-                            NoiseCard(
-                              title: "White Noise",
-                              subtitle: "(Detail)",
-                              value: whiteSliderValue,
-                              isSelected: selectedIndex == 3,
-                              onTap: () => _toggleNoiseSelection(3),
-                              onChanged: (val) => _setNoiseLevel(3, val),
-                              icon: Icons.blur_on,
-                              accentColor: const Color(0xFFD1D1D1),
-                              wavePattern: 3,
-                            ),
-                          ],
-                        ),
+                      NoiseGrid(
+                        brownValue: brownSliderValue,
+                        pinkValue: pinkSliderValue,
+                        greenValue: greenSliderValue,
+                        whiteValue: whiteSliderValue,
+                        selectedIndex: selectedIndex,
+                        onNoiseTap: _toggleNoiseSelection,
+                        onNoiseChanged: _setNoiseLevel,
                       ),
                       Padding(
                         padding: const EdgeInsets.symmetric(
