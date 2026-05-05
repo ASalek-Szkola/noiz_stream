@@ -62,6 +62,11 @@ class HomePageController {
 
   bool get hasActiveNoiseSelection => selectedIndexNotifier.value != -1;
 
+  bool get hasPlayableMix {
+    final mix = mixNotifier.value;
+    return mix.brown > 0 || mix.pink > 0 || mix.green > 0 || mix.white > 0;
+  }
+
   Future<void> loadCustomPresets() async {
     final loaded = await presetStorageService.loadCustomPresets();
     if (loaded.isEmpty || _disposed) {
@@ -99,7 +104,7 @@ class HomePageController {
 
     sessionController.applyPlayOnStartup(
       enabled: settingsController.playOnStartup,
-      hasSelection: hasActiveNoiseSelection,
+      hasSelection: hasPlayableMix,
     );
     _startupBehaviorApplied = true;
   }
@@ -121,14 +126,12 @@ class HomePageController {
       activePresetNameNotifier.value = null;
     }
 
-    sessionController.onSelectionChanged(hasActiveNoiseSelection);
   }
 
   void setNoiseLevel(int index, double value) {
     mixNotifier.value = mixNotifier.value.withLevelForIndex(index, value);
     selectedIndexNotifier.value = index;
     activePresetNameNotifier.value = null;
-    sessionController.onSelectionChanged(true);
   }
 
   Future<SavePresetResult> saveCurrentMixAsPreset(
@@ -220,7 +223,6 @@ class HomePageController {
 
     selectedIndexNotifier.value = target.dominantIndex();
     activePresetNameNotifier.value = preset.name;
-    sessionController.onSelectionChanged(hasActiveNoiseSelection);
 
     var step = 0;
     _presetTimer = Timer.periodic(Duration(milliseconds: stepMs), (timer) {

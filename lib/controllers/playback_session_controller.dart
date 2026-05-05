@@ -40,12 +40,6 @@ class PlaybackSessionController extends ChangeNotifier {
     start();
   }
 
-  void onSelectionChanged(bool hasSelection) {
-    if (!hasSelection) {
-      pause();
-    }
-  }
-
   void togglePlayPause() {
     if (_isPlaying) {
       pause();

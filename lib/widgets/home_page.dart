@@ -44,7 +44,7 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void _togglePlayPause() {
-    if (!_homePageController.hasActiveNoiseSelection) {
+    if (!_homePageController.hasPlayableMix) {
       return;
     }
     _sessionController.togglePlayPause();
@@ -206,8 +206,7 @@ class _MyHomePageState extends State<MyHomePage> {
             : builtInPresets
                   .map((preset) => preset.name)
                   .toList(growable: false);
-        final hasActiveNoiseSelection =
-            _homePageController.hasActiveNoiseSelection;
+        final hasPlayableMix = _homePageController.hasPlayableMix;
         final width = media.size.width;
         final orientation = media.orientation;
         double baseScale;
@@ -300,7 +299,7 @@ class _MyHomePageState extends State<MyHomePage> {
                             scale: scale,
                           ),
                           PlaybackControlsPanel(
-                            hasActiveNoiseSelection: hasActiveNoiseSelection,
+                            hasPlayableMix: hasPlayableMix,
                             presetNames: items,
                             activePresetName: activePresetName,
                             presetColorForName:

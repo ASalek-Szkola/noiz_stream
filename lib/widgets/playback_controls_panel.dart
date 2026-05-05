@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 class PlaybackControlsPanel extends StatelessWidget {
   const PlaybackControlsPanel({
     super.key,
-    required this.hasActiveNoiseSelection,
+    required this.hasPlayableMix,
     required this.presetNames,
     required this.activePresetName,
     required this.presetColorForName,
@@ -21,7 +21,7 @@ class PlaybackControlsPanel extends StatelessWidget {
     this.scale = 1.0,
   });
 
-  final bool hasActiveNoiseSelection;
+  final bool hasPlayableMix;
   final List<String> presetNames;
   final String? activePresetName;
   final Color Function(String name, Color fallback) presetColorForName;
@@ -69,9 +69,9 @@ class PlaybackControlsPanel extends StatelessWidget {
         vertical: outerVertical,
       ),
       child: AbsorbPointer(
-        absorbing: !hasActiveNoiseSelection,
+        absorbing: !hasPlayableMix,
         child: Opacity(
-          opacity: !hasActiveNoiseSelection ? 0.5 : 1.0,
+          opacity: !hasPlayableMix ? 0.5 : 1.0,
           child: Container(
             padding: EdgeInsets.symmetric(
               horizontal: innerHorizontal,
@@ -255,7 +255,7 @@ class PlaybackControlsPanel extends StatelessWidget {
                       color: theme.colorScheme.onPrimary,
                     ),
                     iconSize: playIconSize,
-                    onPressed: hasActiveNoiseSelection
+                    onPressed: hasPlayableMix
                         ? onTogglePlayPause
                         : null,
                   ),
@@ -264,12 +264,12 @@ class PlaybackControlsPanel extends StatelessWidget {
                 Column(
                   children: [
                     IconButton(
-                      onPressed: hasActiveNoiseSelection
+                      onPressed: hasPlayableMix
                           ? onToggleRepeat
                           : null,
                       icon: Icon(
                         Icons.repeat,
-                        color: !hasActiveNoiseSelection
+                        color: !hasPlayableMix
                             ? theme.colorScheme.secondary.withValues(alpha: 0.3)
                             : repeatEnabled
                             ? theme.colorScheme.primary
@@ -278,12 +278,12 @@ class PlaybackControlsPanel extends StatelessWidget {
                       iconSize: actionIconSize,
                     ),
                     IconButton(
-                      onPressed: hasActiveNoiseSelection
+                      onPressed: hasPlayableMix
                           ? onToggleShuffle
                           : null,
                       icon: Icon(
                         Icons.shuffle,
-                        color: !hasActiveNoiseSelection
+                        color: !hasPlayableMix
                             ? theme.colorScheme.secondary.withValues(alpha: 0.3)
                             : shuffleEnabled
                             ? theme.colorScheme.primary
