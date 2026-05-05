@@ -2,10 +2,14 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../services/audio_service.dart';
+
 class PlaybackSessionController extends ChangeNotifier {
-  PlaybackSessionController({Duration? defaultDuration})
+  PlaybackSessionController({required this.audioService, Duration? defaultDuration})
     : _defaultDuration = defaultDuration ?? const Duration(minutes: 25),
       _remaining = defaultDuration ?? const Duration(minutes: 25);
+
+  final AudioService audioService;
 
   final Duration _defaultDuration;
   Duration _remaining;
@@ -56,6 +60,7 @@ class PlaybackSessionController extends ChangeNotifier {
       _remaining = _defaultDuration;
     }
     _isPlaying = true;
+    unawaited(audioService.play());
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), _onTick);
     notifyListeners();
@@ -64,6 +69,7 @@ class PlaybackSessionController extends ChangeNotifier {
   void pause() {
     if (!_isPlaying) return;
     _isPlaying = false;
+    unawaited(audioService.stop());
     _timer?.cancel();
     _timer = null;
     notifyListeners();
@@ -93,6 +99,7 @@ class PlaybackSessionController extends ChangeNotifier {
       } else {
         _remaining = Duration.zero;
         _isPlaying = false;
+        unawaited(audioService.stop());
         timer.cancel();
         _timer = null;
       }

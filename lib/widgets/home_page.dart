@@ -6,6 +6,7 @@ import '../controllers/app_settings_controller.dart';
 import '../controllers/home_page_controller.dart';
 import '../controllers/playback_session_controller.dart';
 import '../data/default_presets.dart';
+import '../services/audio_service.dart';
 import '../services/preset_storage_service.dart';
 import 'noise_grid.dart';
 import 'playback_controls_panel.dart';
@@ -17,10 +18,12 @@ class MyHomePage extends StatefulWidget {
     super.key,
     required this.title,
     required this.settingsController,
+    required this.audioService,
   });
 
   final String title;
   final AppSettingsController settingsController;
+  final AudioService audioService;
 
   @override
   State<MyHomePage> createState() => _MyHomePageState();
@@ -30,6 +33,7 @@ class _MyHomePageState extends State<MyHomePage> {
   late final PlaybackSessionController _sessionController;
   late final HomePageController _homePageController;
   late final Listenable _pageListenable;
+  late final VoidCallback _mixListener;
 
   void _handleSettingsChanged() {
     if (!mounted) {
@@ -102,7 +106,9 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   void initState() {
     super.initState();
-    _sessionController = PlaybackSessionController();
+    _sessionController = PlaybackSessionController(
+      audioService: widget.audioService,
+    );
     _homePageController = HomePageController(
       settingsController: widget.settingsController,
       sessionController: _sessionController,
@@ -118,6 +124,12 @@ class _MyHomePageState extends State<MyHomePage> {
 
     widget.settingsController.addListener(_handleSettingsChanged);
 
+    _mixListener = () {
+      widget.audioService.updateVolumes(_homePageController.mixNotifier.value);
+    };
+    _homePageController.mixNotifier.addListener(_mixListener);
+    _mixListener();
+
     if (widget.settingsController.isLoaded) {
       _handleSettingsChanged();
     }
@@ -128,6 +140,7 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   void dispose() {
     widget.settingsController.removeListener(_handleSettingsChanged);
+    _homePageController.mixNotifier.removeListener(_mixListener);
     _homePageController.dispose();
     _sessionController.dispose();
     super.dispose();

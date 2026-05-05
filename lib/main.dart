@@ -3,18 +3,26 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'controllers/app_settings_controller.dart';
+import 'services/audio_service.dart';
 import 'widgets/home_page.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(MyApp());
+  final audioService = AudioService();
+  unawaited(audioService.init());
+  runApp(MyApp(audioService: audioService));
 }
 
 class MyApp extends StatefulWidget {
-  MyApp({super.key, AppSettingsController? settingsController})
-    : settingsController = settingsController ?? AppSettingsController();
+  MyApp({
+    super.key,
+    AppSettingsController? settingsController,
+    AudioService? audioService,
+  }) : settingsController = settingsController ?? AppSettingsController(),
+       audioService = audioService ?? AudioService();
 
   final AppSettingsController settingsController;
+  final AudioService audioService;
 
   @override
   State<MyApp> createState() => _MyAppState();
@@ -25,6 +33,12 @@ class _MyAppState extends State<MyApp> {
   void initState() {
     super.initState();
     unawaited(widget.settingsController.load());
+  }
+
+  @override
+  void dispose() {
+    unawaited(widget.audioService.dispose());
+    super.dispose();
   }
 
   @override
@@ -101,6 +115,7 @@ class _MyAppState extends State<MyApp> {
           home: MyHomePage(
             title: 'NoizStream',
             settingsController: widget.settingsController,
+            audioService: widget.audioService,
           ),
           debugShowCheckedModeBanner: false,
         );
