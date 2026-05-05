@@ -32,7 +32,8 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   late final PlaybackSessionController _sessionController;
   late final HomePageController _homePageController;
-  late final Listenable _pageListenable;
+  late final ChangeNotifier _pageNotifier;
+  late final VoidCallback _pageListener;
   late final VoidCallback _mixListener;
 
   void _handleSettingsChanged() {
@@ -49,7 +50,7 @@ class _MyHomePageState extends State<MyHomePage> {
     _sessionController.togglePlayPause();
   }
 
-  void _openSavePresetDialog() {
+  Future<void> _openSavePresetDialog() async {
     final activePresetName = _homePageController.activePresetNameNotifier.value;
     final selectedColor = activePresetName != null
         ? _homePageController.presetColorForName(
@@ -58,49 +59,74 @@ class _MyHomePageState extends State<MyHomePage> {
           )
         : presetColorOptions.first;
 
-    unawaited(
-      showSavePresetDialog(
-        context: context,
-        initialColor: selectedColor,
-        colorOptions: presetColorOptions,
-      ).then((result) async {
-        if (result == null) {
-          return;
-        }
-
-        final saveResult = await _homePageController.saveCurrentMixAsPreset(
-          result.name,
-          result.color,
-        );
-
-        if (!mounted) {
-          return;
-        }
-
-        switch (saveResult.status) {
-          case SavePresetStatus.saved:
-            final savedName = saveResult.savedName ?? result.name;
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Zapisano preset: $savedName')),
-            );
-            break;
-          case SavePresetStatus.builtInNameConflict:
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                  'Preset o tej nazwie juz istnieje jako wbudowany. Wybierz inna nazwe.',
-                ),
-              ),
-            );
-            break;
-          case SavePresetStatus.emptyName:
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Podaj nazwe presetu.')),
-            );
-            break;
-        }
-      }),
+    final result = await showSavePresetDialog(
+      context: context,
+      initialColor: selectedColor,
+      colorOptions: presetColorOptions,
     );
+
+    if (!mounted || result == null) {
+      return;
+    }
+
+    final saveResult = await _homePageController.saveCurrentMixAsPreset(
+      result.name,
+      result.color,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    switch (saveResult.status) {
+      case SavePresetStatus.saved:
+        final savedName = saveResult.savedName ?? result.name;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Zapisano preset: $savedName')),
+        );
+        break;
+      case SavePresetStatus.builtInNameConflict:
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Preset o tej nazwie juz istnieje jako wbudowany. Wybierz inna nazwe.',
+            ),
+          ),
+        );
+        break;
+      case SavePresetStatus.emptyName:
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Podaj nazwe presetu.')),
+        );
+        break;
+    }
+  }
+
+  Future<void> _deletePreset(String name) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Usunąć preset?'),
+        content: Text('Czy na pewno chcesz usunąć preset "$name"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Anuluj'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Usuń'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      await _homePageController.deleteCustomPreset(name);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Usunięto preset: $name')),
+      );
+    }
   }
 
   @override
@@ -114,13 +140,15 @@ class _MyHomePageState extends State<MyHomePage> {
       sessionController: _sessionController,
       presetStorageService: PresetStorageService(),
     );
-    _pageListenable = Listenable.merge(<Listenable>[
-      _sessionController,
-      _homePageController.mixNotifier,
-      _homePageController.selectedIndexNotifier,
-      _homePageController.activePresetNameNotifier,
-      _homePageController.presetNamesNotifier,
-    ]);
+    _pageNotifier = ChangeNotifier();
+    _pageListener = () {
+      _pageNotifier.notifyListeners();
+    };
+    _sessionController.addListener(_pageListener);
+    _homePageController.mixNotifier.addListener(_pageListener);
+    _homePageController.selectedIndexNotifier.addListener(_pageListener);
+    _homePageController.activePresetNameNotifier.addListener(_pageListener);
+    _homePageController.presetNamesNotifier.addListener(_pageListener);
 
     widget.settingsController.addListener(_handleSettingsChanged);
 
@@ -141,6 +169,12 @@ class _MyHomePageState extends State<MyHomePage> {
   void dispose() {
     widget.settingsController.removeListener(_handleSettingsChanged);
     _homePageController.mixNotifier.removeListener(_mixListener);
+    _sessionController.removeListener(_pageListener);
+    _homePageController.mixNotifier.removeListener(_pageListener);
+    _homePageController.selectedIndexNotifier.removeListener(_pageListener);
+    _homePageController.activePresetNameNotifier.removeListener(_pageListener);
+    _homePageController.presetNamesNotifier.removeListener(_pageListener);
+    _pageNotifier.dispose();
     _homePageController.dispose();
     _sessionController.dispose();
     super.dispose();
@@ -158,7 +192,7 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: _pageListenable,
+      animation: _pageNotifier,
       builder: (context, child) {
         final theme = Theme.of(context);
         final mix = _homePageController.mixNotifier.value;
@@ -239,6 +273,7 @@ class _MyHomePageState extends State<MyHomePage> {
                                 _homePageController.isCustomPresetName,
                             onPresetSelected:
                                 _homePageController.applyPresetByName,
+                            onPresetDeleteRequested: _deletePreset,
                             onSavePreset: _openSavePresetDialog,
                             formattedRemaining:
                                 _sessionController.formattedRemaining,

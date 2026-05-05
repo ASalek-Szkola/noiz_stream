@@ -9,6 +9,7 @@ class PlaybackControlsPanel extends StatelessWidget {
     required this.presetColorForName,
     required this.isCustomPresetName,
     required this.onPresetSelected,
+    required this.onPresetDeleteRequested,
     required this.onSavePreset,
     required this.formattedRemaining,
     required this.isPlaying,
@@ -25,6 +26,7 @@ class PlaybackControlsPanel extends StatelessWidget {
   final Color Function(String name, Color fallback) presetColorForName;
   final bool Function(String name) isCustomPresetName;
   final ValueChanged<String> onPresetSelected;
+  final ValueChanged<String> onPresetDeleteRequested;
   final VoidCallback onSavePreset;
   final String formattedRemaining;
   final bool isPlaying;
@@ -73,40 +75,61 @@ class PlaybackControlsPanel extends StatelessWidget {
 
                                   return PopupMenuItem<String>(
                                     value: name,
-                                    child: Row(
-                                      children: [
-                                        Container(
-                                          width: 10,
-                                          height: 10,
-                                          decoration: BoxDecoration(
-                                            shape: BoxShape.circle,
-                                            color: color,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: Text(
-                                            name,
-                                            style: TextStyle(
-                                              color:
-                                                  theme.colorScheme.onSurface,
-                                            ),
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ),
-                                        if (isCustom)
-                                          Padding(
-                                            padding: const EdgeInsets.only(
-                                              left: 6,
-                                            ),
-                                            child: Icon(
-                                              Icons.bookmark,
-                                              size: 14,
-                                              color:
-                                                  theme.colorScheme.secondary,
+                                    child: InkWell(
+                                      onLongPress: isCustom
+                                          ? () {
+                                              Navigator.pop(context);
+                                              onPresetDeleteRequested(name);
+                                            }
+                                          : null,
+                                      child: Row(
+                                        children: [
+                                          Container(
+                                            width: 10,
+                                            height: 10,
+                                            decoration: BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              color: color,
                                             ),
                                           ),
-                                      ],
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              name,
+                                              style: TextStyle(
+                                                color:
+                                                    theme.colorScheme.onSurface,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          if (isCustom) ...[
+                                            Padding(
+                                              padding: const EdgeInsets.only(
+                                                left: 6,
+                                              ),
+                                              child: Icon(
+                                                Icons.bookmark,
+                                                size: 14,
+                                                color: theme
+                                                    .colorScheme.secondary,
+                                              ),
+                                            ),
+                                            Padding(
+                                              padding: const EdgeInsets.only(
+                                                left: 6,
+                                              ),
+                                              child: Icon(
+                                                Icons.close,
+                                                size: 14,
+                                                color: theme.colorScheme
+                                                    .secondary
+                                                    .withValues(alpha: 0.5),
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
                                     ),
                                   );
                                 })

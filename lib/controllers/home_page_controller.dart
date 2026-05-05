@@ -180,6 +180,24 @@ class HomePageController {
     return _customPresetNames.contains(name);
   }
 
+  Future<void> deleteCustomPreset(String name) async {
+    if (!_customPresetNames.contains(name)) {
+      return;
+    }
+
+    final updated = List<Preset>.from(presetsNotifier.value)
+        .where((preset) => preset.name != name)
+        .toList();
+
+    _customPresetNames.remove(name);
+    if (activePresetNameNotifier.value == name) {
+      activePresetNameNotifier.value = null;
+    }
+
+    _setPresets(updated);
+    await _persistCustomPresets();
+  }
+
   void dispose() {
     _disposed = true;
     _presetTimer?.cancel();
