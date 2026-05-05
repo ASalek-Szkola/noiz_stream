@@ -15,8 +15,7 @@ class AudioService {
 
   Future<void>? _initFuture;
   bool _disposed = false;
-  NoiseMix _lastMix =
-      const NoiseMix(brown: 0.0, pink: 0.0, green: 0.0, white: 0.0);
+  NoiseMix _lastMix = const NoiseMix.defaults();
 
   Future<void> init() {
     _initFuture ??= _initPlayers();
@@ -27,6 +26,7 @@ class AudioService {
     if (_disposed) return;
     try {
       await init();
+      await _applyVolumes(_lastMix);
       await Future.wait(<Future<void>>[
         _brownPlayer.play(),
         _pinkPlayer.play(),
@@ -59,10 +59,7 @@ class AudioService {
   void updateVolumes(NoiseMix mix) {
     _lastMix = mix;
     if (_disposed) return;
-    unawaited(_brownPlayer.setVolume(mix.brown));
-    unawaited(_pinkPlayer.setVolume(mix.pink));
-    unawaited(_greenPlayer.setVolume(mix.green));
-    unawaited(_whitePlayer.setVolume(mix.white));
+    unawaited(_applyVolumes(mix));
   }
 
   Future<void> dispose() async {
@@ -91,12 +88,19 @@ class AudioService {
     try {
       await player.setAsset(assetPath);
       await player.setLoopMode(LoopMode.one);
-      // volumes are applied later via updateVolumes.
-      await player.setVolume(0.0);
     } catch (e, st) {
       if (kDebugMode) {
         print('AudioService: failed to load $assetPath: $e\n$st');
       }
     }
+  }
+
+  Future<void> _applyVolumes(NoiseMix mix) {
+    return Future.wait(<Future<void>>[
+      _brownPlayer.setVolume(mix.brown),
+      _pinkPlayer.setVolume(mix.pink),
+      _greenPlayer.setVolume(mix.green),
+      _whitePlayer.setVolume(mix.white),
+    ]);
   }
 }

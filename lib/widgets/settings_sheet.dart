@@ -108,31 +108,6 @@ Future<void> showSettingsSheet({
                           setModalState(() {});
                         },
                       ),
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: Text(
-                          'High Quality Audio',
-                          style: TextStyle(
-                            color: theme.colorScheme.onSurface,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        subtitle: Text(
-                          'Enable 48kHz lossless streaming (uses more data)',
-                          style: TextStyle(
-                            color: theme.colorScheme.secondary,
-                            fontSize: 12,
-                          ),
-                        ),
-                        value: settingsController.highQualityAudio,
-                        activeThumbColor: theme.colorScheme.primary,
-                        onChanged: (bool value) {
-                          unawaited(
-                            settingsController.setHighQualityAudio(value),
-                          );
-                          setModalState(() {});
-                        },
-                      ),
                       Divider(color: theme.dividerColor),
                       const SizedBox(height: 8),
                       Text(

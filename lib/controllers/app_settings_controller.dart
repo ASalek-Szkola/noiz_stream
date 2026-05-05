@@ -5,17 +5,14 @@ class AppSettingsController extends ChangeNotifier {
   static const String themeModeKey = 'theme_mode_v1';
   static const String playOnStartupKey = 'play_on_startup_v1';
   static const String crossfadeDurationKey = 'crossfade_duration_v1';
-  static const String highQualityAudioKey = 'high_quality_audio_v1';
 
   ThemeMode _themeMode = ThemeMode.light;
   bool _playOnStartup = false;
-  bool _highQualityAudio = false;
-  double _crossfadeDuration = 3.0;
+  double _crossfadeDuration = 2.0;
   bool _isLoaded = false;
 
   ThemeMode get themeMode => _themeMode;
   bool get playOnStartup => _playOnStartup;
-  bool get highQualityAudio => _highQualityAudio;
   double get crossfadeDuration => _crossfadeDuration;
   bool get isLoaded => _isLoaded;
 
@@ -24,7 +21,6 @@ class AppSettingsController extends ChangeNotifier {
 
     _themeMode = _themeModeFromStorage(prefs.getString(themeModeKey));
     _playOnStartup = prefs.getBool(playOnStartupKey) ?? _playOnStartup;
-    _highQualityAudio = prefs.getBool(highQualityAudioKey) ?? _highQualityAudio;
     _crossfadeDuration =
         (prefs.getDouble(crossfadeDurationKey) ?? _crossfadeDuration)
             .clamp(1.0, 10.0)
@@ -44,13 +40,6 @@ class AppSettingsController extends ChangeNotifier {
   Future<void> setPlayOnStartup(bool value) async {
     if (_playOnStartup == value) return;
     _playOnStartup = value;
-    notifyListeners();
-    await _persist();
-  }
-
-  Future<void> setHighQualityAudio(bool value) async {
-    if (_highQualityAudio == value) return;
-    _highQualityAudio = value;
     notifyListeners();
     await _persist();
   }
@@ -89,7 +78,6 @@ class AppSettingsController extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(themeModeKey, _themeMode.name);
     await prefs.setBool(playOnStartupKey, _playOnStartup);
-    await prefs.setBool(highQualityAudioKey, _highQualityAudio);
     await prefs.setDouble(crossfadeDurationKey, _crossfadeDuration);
   }
 }

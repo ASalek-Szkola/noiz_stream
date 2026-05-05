@@ -28,7 +28,6 @@ void main() {
     SharedPreferences.setMockInitialValues(<String, Object>{
       AppSettingsController.themeModeKey: 'dark',
       AppSettingsController.playOnStartupKey: true,
-      AppSettingsController.highQualityAudioKey: true,
       AppSettingsController.crossfadeDurationKey: 7.0,
     });
 
@@ -46,13 +45,9 @@ void main() {
     final playOnStartupTile = tester.widget<SwitchListTile>(
       find.widgetWithText(SwitchListTile, 'Play on Startup'),
     );
-    final highQualityAudioTile = tester.widget<SwitchListTile>(
-      find.widgetWithText(SwitchListTile, 'High Quality Audio'),
-    );
 
     expect(darkModeTile.value, isTrue);
     expect(playOnStartupTile.value, isTrue);
-    expect(highQualityAudioTile.value, isTrue);
     expect(find.text('Crossfade Duration: 7s'), findsOneWidget);
   });
 
@@ -71,13 +66,9 @@ void main() {
     await tester.tap(find.widgetWithText(SwitchListTile, 'Play on Startup'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.widgetWithText(SwitchListTile, 'High Quality Audio'));
-    await tester.pumpAndSettle();
-
     final prefs = await SharedPreferences.getInstance();
     expect(prefs.getString(AppSettingsController.themeModeKey), 'dark');
     expect(prefs.getBool(AppSettingsController.playOnStartupKey), isTrue);
-    expect(prefs.getBool(AppSettingsController.highQualityAudioKey), isTrue);
   });
 
   test('persists crossfade duration in settings controller', () async {

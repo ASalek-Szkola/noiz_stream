@@ -42,7 +42,6 @@ class HomePageController {
        );
 
   static const int _defaultPresetSteps = 20;
-  static const int _highQualityPresetSteps = 40;
   static const int _minFrameMs = 16;
 
   final AppSettingsController settingsController;
@@ -196,8 +195,7 @@ class HomePageController {
 
     final start = mixNotifier.value;
     final target = preset.mix;
-    final highQuality = settingsController.highQualityAudio;
-    final steps = highQuality ? _highQualityPresetSteps : _defaultPresetSteps;
+    final steps = _defaultPresetSteps;
     final totalMs = (settingsController.crossfadeDuration * 1000).round();
     final rawStepMs = totalMs ~/ steps;
     final stepMs = rawStepMs < _minFrameMs ? _minFrameMs : rawStepMs;
