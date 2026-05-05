@@ -79,6 +79,16 @@ class PlaybackSessionController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void replaySession() {
+    _remaining = _defaultDuration;
+    _isPlaying = true;
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 1), _onTick);
+    unawaited(audioService.stop());
+    unawaited(audioService.play());
+    notifyListeners();
+  }
+
   void resetSession([Duration? duration]) {
     _remaining = duration ?? _defaultDuration;
     notifyListeners();

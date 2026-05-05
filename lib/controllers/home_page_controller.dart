@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
@@ -122,16 +123,24 @@ class HomePageController {
     final next = current == index ? -1 : index;
 
     selectedIndexNotifier.value = next;
-    if (next == -1) {
-      activePresetNameNotifier.value = null;
-    }
-
   }
 
   void setNoiseLevel(int index, double value) {
     mixNotifier.value = mixNotifier.value.withLevelForIndex(index, value);
     selectedIndexNotifier.value = index;
     activePresetNameNotifier.value = null;
+  }
+
+  void randomizeMix() {
+    _presetTimer?.cancel();
+    final presets = presetsNotifier.value;
+    if (presets.isEmpty) {
+      return;
+    }
+
+    final random = math.Random();
+    final selected = presets[random.nextInt(presets.length)];
+    _applyPreset(selected, updateSelection: false);
   }
 
   Future<SavePresetResult> saveCurrentMixAsPreset(
@@ -211,7 +220,7 @@ class HomePageController {
     presetNamesNotifier.dispose();
   }
 
-  void _applyPreset(Preset preset) {
+  void _applyPreset(Preset preset, {bool updateSelection = true}) {
     _presetTimer?.cancel();
 
     final start = mixNotifier.value;
@@ -221,7 +230,9 @@ class HomePageController {
     final rawStepMs = totalMs ~/ steps;
     final stepMs = rawStepMs < _minFrameMs ? _minFrameMs : rawStepMs;
 
-    selectedIndexNotifier.value = target.dominantIndex();
+    if (updateSelection) {
+      selectedIndexNotifier.value = target.dominantIndex();
+    }
     activePresetNameNotifier.value = preset.name;
 
     var step = 0;

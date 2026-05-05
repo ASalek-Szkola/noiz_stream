@@ -4,30 +4,33 @@ import 'package:noiz_stream/widgets/playback_controls_panel.dart';
 
 void main() {
   Widget buildFrame({
-    bool hasActiveNoiseSelection = true,
+    bool hasPlayableMix = true,
     List<String> presetNames = const ['Flat', 'Deep'],
     String? activePresetName,
     bool isPlaying = false,
     VoidCallback? onTogglePlayPause,
     VoidCallback? onSavePreset,
+    VoidCallback? onToggleRepeat,
+    VoidCallback? onToggleShuffle,
   }) {
     return MaterialApp(
       home: Scaffold(
         body: PlaybackControlsPanel(
-          hasActiveNoiseSelection: hasActiveNoiseSelection,
+          hasPlayableMix: hasPlayableMix,
           presetNames: presetNames,
           activePresetName: activePresetName,
           presetColorForName: (name, fallback) => Colors.blue,
           isCustomPresetName: (name) => name == 'Deep',
           onPresetSelected: (_) {},
+          onPresetDeleteRequested: (_) {},
           onSavePreset: onSavePreset ?? () {},
           formattedRemaining: '00:00',
           isPlaying: isPlaying,
           repeatEnabled: false,
           shuffleEnabled: false,
           onTogglePlayPause: onTogglePlayPause ?? () {},
-          onToggleRepeat: () {},
-          onToggleShuffle: () {},
+          onToggleRepeat: onToggleRepeat ?? () {},
+          onToggleShuffle: onToggleShuffle ?? () {},
         ),
       ),
     );
@@ -50,10 +53,10 @@ void main() {
     expect(find.text('MIX'), findsOneWidget);
   });
 
-  testWidgets('PlaybackControlsPanel is disabled when no noise is selected', (
+  testWidgets('PlaybackControlsPanel is disabled when no mix is playable', (
     WidgetTester tester,
   ) async {
-    await tester.pumpWidget(buildFrame(hasActiveNoiseSelection: false));
+    await tester.pumpWidget(buildFrame(hasPlayableMix: false));
 
     // We look for the AbsorbPointer that has absorbing: true
     final absorbPointers = tester.widgetList<AbsorbPointer>(
@@ -85,5 +88,25 @@ void main() {
 
     await tester.tap(find.byIcon(Icons.bookmark_add_outlined));
     expect(saved, isTrue);
+  });
+
+  testWidgets('PlaybackControlsPanel replay button triggers callback', (
+    WidgetTester tester,
+  ) async {
+    bool replayed = false;
+    await tester.pumpWidget(buildFrame(onToggleRepeat: () => replayed = true));
+
+    await tester.tap(find.byIcon(Icons.repeat));
+    expect(replayed, isTrue);
+  });
+
+  testWidgets('PlaybackControlsPanel mix button triggers callback', (
+    WidgetTester tester,
+  ) async {
+    bool mixed = false;
+    await tester.pumpWidget(buildFrame(onToggleShuffle: () => mixed = true));
+
+    await tester.tap(find.byIcon(Icons.shuffle));
+    expect(mixed, isTrue);
   });
 }
