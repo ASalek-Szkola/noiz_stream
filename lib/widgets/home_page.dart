@@ -194,6 +194,7 @@ class _MyHomePageState extends State<MyHomePage> {
     return AnimatedBuilder(
       animation: _pageNotifier,
       builder: (context, child) {
+        final media = MediaQuery.of(context);
         final theme = Theme.of(context);
         final mix = _homePageController.mixNotifier.value;
         final selectedIndex = _homePageController.selectedIndexNotifier.value;
@@ -207,6 +208,31 @@ class _MyHomePageState extends State<MyHomePage> {
                   .toList(growable: false);
         final hasActiveNoiseSelection =
             _homePageController.hasActiveNoiseSelection;
+        final width = media.size.width;
+        final orientation = media.orientation;
+        double baseScale;
+
+        if (width < 360) {
+          baseScale = 0.92;
+        } else if (width < 420) {
+          baseScale = 1.0;
+        } else if (width < 600) {
+          baseScale = 1.05;
+        } else if (width < 900) {
+          baseScale = 1.12;
+        } else {
+          baseScale = 1.2;
+        }
+
+        if (orientation == Orientation.landscape && width < 700) {
+          baseScale *= 0.95;
+        }
+
+        final scale = baseScale.clamp(0.9, 1.2).toDouble();
+        final appBarTitleTop =
+            (media.padding.top * 0.35).clamp(4.0, 12.0).toDouble();
+        final appBarHeight = kToolbarHeight * scale + appBarTitleTop;
+        final actionIconSize = 24.0 * scale;
 
         return Scaffold(
           extendBodyBehindAppBar: true,
@@ -216,22 +242,31 @@ class _MyHomePageState extends State<MyHomePage> {
             surfaceTintColor: Colors.transparent,
             foregroundColor: theme.colorScheme.onSurface,
             centerTitle: true,
-            title: Text(
-              widget.title,
-              style: TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
-                color: theme.colorScheme.onSurface,
+            toolbarHeight: appBarHeight,
+            titleSpacing: 16 * scale,
+            title: Padding(
+              padding: EdgeInsets.only(top: appBarTitleTop),
+              child: Text(
+                widget.title,
+                style: TextStyle(
+                  fontSize: 32 * scale,
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.onSurface,
+                ),
               ),
             ),
             actions: [
               Padding(
-                padding: const EdgeInsets.only(right: 10.0),
+                padding: EdgeInsets.only(
+                  top: appBarTitleTop,
+                  right: 10.0 * scale,
+                ),
                 child: IconButton(
                   icon: Icon(
                     Icons.settings,
                     color: theme.colorScheme.onSurface,
                   ),
+                  iconSize: actionIconSize,
                   onPressed: _openSettingsPanel,
                 ),
               ),
@@ -262,6 +297,7 @@ class _MyHomePageState extends State<MyHomePage> {
                             onNoiseTap:
                                 _homePageController.toggleNoiseSelection,
                             onNoiseChanged: _homePageController.setNoiseLevel,
+                            scale: scale,
                           ),
                           PlaybackControlsPanel(
                             hasActiveNoiseSelection: hasActiveNoiseSelection,
@@ -283,6 +319,7 @@ class _MyHomePageState extends State<MyHomePage> {
                             onTogglePlayPause: _togglePlayPause,
                             onToggleRepeat: _sessionController.toggleRepeat,
                             onToggleShuffle: _sessionController.toggleShuffle,
+                            scale: scale,
                           ),
                         ],
                       ),

@@ -11,6 +11,7 @@ class NoiseCard extends StatelessWidget {
   final bool isSelected;
   final VoidCallback? onTap;
   final int wavePattern;
+  final double scale;
 
   const NoiseCard({
     super.key,
@@ -23,12 +24,22 @@ class NoiseCard extends StatelessWidget {
     this.isSelected = false,
     this.onTap,
     this.wavePattern = 0,
+    this.scale = 1.0,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final bool isDark = theme.brightness == Brightness.dark;
+    final clampedScale = scale.clamp(0.9, 1.2).toDouble();
+    final waveHeight = (50.0 * clampedScale).clamp(44.0, 60.0).toDouble();
+    final borderWidth =
+        (isSelected ? 2.5 * clampedScale : 1.0 * clampedScale).toDouble();
+    final trackHeight = (3.0 * clampedScale).clamp(2.5, 4.0).toDouble();
+    final overlayRadius =
+        (12.0 * clampedScale).clamp(10.0, 16.0).toDouble();
+    final thumbRadius =
+        (6.0 * clampedScale).clamp(5.0, 8.0).toDouble();
 
     return GestureDetector(
       onTap: onTap,
@@ -38,12 +49,12 @@ class NoiseCard extends StatelessWidget {
           color: isDark
               ? Colors.white.withValues(alpha: 0.05)
               : Colors.black.withValues(alpha: 0.03),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(16 * clampedScale),
           border: Border.all(
             color: isSelected
                 ? theme.colorScheme.primary.withValues(alpha: 0.8)
                 : theme.colorScheme.outline.withValues(alpha: 0.2),
-            width: isSelected ? 2.5 : 1.0,
+            width: borderWidth,
           ),
         ),
         child: Column(
@@ -51,9 +62,14 @@ class NoiseCard extends StatelessWidget {
           children: [
             // waveform preview
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+              padding: EdgeInsets.fromLTRB(
+                12 * clampedScale,
+                12 * clampedScale,
+                12 * clampedScale,
+                10 * clampedScale,
+              ),
               child: SizedBox(
-                height: 50,
+                height: waveHeight,
                 child: WaveWidget(
                   color: accentColor,
                   pattern: wavePattern,
@@ -66,23 +82,28 @@ class NoiseCard extends StatelessWidget {
             ),
             // Volume
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+              padding: EdgeInsets.fromLTRB(
+                12 * clampedScale,
+                0,
+                12 * clampedScale,
+                6 * clampedScale,
+              ),
               child: Row(
                 children: [
                   Icon(
                     value == 0.00 ? Icons.volume_off : Icons.volume_up,
-                    size: 14,
+                    size: 14 * clampedScale,
                     color: theme.colorScheme.secondary.withValues(alpha: 0.6),
                   ),
                   Expanded(
                     child: SliderTheme(
                       data: SliderTheme.of(context).copyWith(
-                        trackHeight: 3,
-                        overlayShape: const RoundSliderOverlayShape(
-                          overlayRadius: 12,
+                        trackHeight: trackHeight,
+                        thumbShape: RoundSliderThumbShape(
+                          enabledThumbRadius: thumbRadius,
                         ),
-                        thumbShape: const RoundSliderThumbShape(
-                          enabledThumbRadius: 6,
+                        overlayShape: RoundSliderOverlayShape(
+                          overlayRadius: overlayRadius,
                         ),
                       ),
                       child: Slider(
@@ -98,7 +119,7 @@ class NoiseCard extends StatelessWidget {
                     '${(value * 100).toStringAsFixed(0)}%',
                     style: TextStyle(
                       color: theme.colorScheme.secondary,
-                      fontSize: 10,
+                      fontSize: 10 * clampedScale,
                     ),
                   ),
                 ],
@@ -106,19 +127,19 @@ class NoiseCard extends StatelessWidget {
             ),
             // Info
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: EdgeInsets.all(12 * clampedScale),
               decoration: BoxDecoration(
                 color: isDark
                     ? Colors.white.withValues(alpha: 0.05)
                     : Colors.white.withValues(alpha: 0.4),
-                borderRadius: const BorderRadius.vertical(
-                  bottom: Radius.circular(15),
+                borderRadius: BorderRadius.vertical(
+                  bottom: Radius.circular(15 * clampedScale),
                 ),
               ),
               child: Row(
                 children: [
-                  Icon(icon, color: accentColor, size: 20),
-                  const SizedBox(width: 10),
+                  Icon(icon, color: accentColor, size: 20 * clampedScale),
+                  SizedBox(width: 10 * clampedScale),
                   Flexible(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -131,7 +152,7 @@ class NoiseCard extends StatelessWidget {
                           style: TextStyle(
                             color: theme.colorScheme.onSurface,
                             fontWeight: FontWeight.bold,
-                            fontSize: 13,
+                            fontSize: 13 * clampedScale,
                           ),
                         ),
                         Text(
@@ -140,7 +161,7 @@ class NoiseCard extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             color: theme.colorScheme.secondary,
-                            fontSize: 10,
+                            fontSize: 10 * clampedScale,
                           ),
                         ),
                       ],
